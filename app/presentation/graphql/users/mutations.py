@@ -14,7 +14,7 @@ from app.presentation.graphql.validation import raise_graphql_validation_error
 @strawberry.type
 class UserMutation:
     @strawberry.mutation
-    def create_user(
+    async def create_user(
         self,
         input: CreateUserInput,
     ) -> UserType:
@@ -51,7 +51,7 @@ class UserMutation:
             db.close()
 
     @strawberry.mutation
-    def login(self, input: LoginInput) -> LoginResponseType:
+    async def login(self, input: LoginInput) -> LoginResponseType:
         try:
             payload = LoginInputValidator.model_validate(
                 {

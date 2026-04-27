@@ -32,7 +32,7 @@ class ProductMutation:
         )
 
     @strawberry.mutation
-    def create_product(
+    async def create_product(
         self,
         input: CreateProductInput,
     ) -> ProductType:

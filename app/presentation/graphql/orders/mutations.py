@@ -14,7 +14,7 @@ from app.presentation.graphql.validation import raise_graphql_validation_error
 @strawberry.type
 class OrderMutation:
     @strawberry.mutation
-    def create_order(
+    async def create_order(
         self,
         info: Info,
         input: CreateOrderInput,
