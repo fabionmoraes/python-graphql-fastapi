@@ -10,7 +10,6 @@ from app.presentation.graphql.products.types import (
     StringComparisonExp,
 )
 
-
 @strawberry.type
 class ProductQuery:
     @staticmethod
