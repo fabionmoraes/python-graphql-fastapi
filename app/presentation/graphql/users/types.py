@@ -14,3 +14,17 @@ class UserType:
 class LoginResponseType:
     access_token: str
     token_type: str = "Bearer"
+
+
+@strawberry.input
+class CreateUserInput:
+    username: str
+    email: str
+    role: str = "USER"
+    is_active: bool = True
+
+
+@strawberry.input
+class LoginInput:
+    username: str
+    email: str

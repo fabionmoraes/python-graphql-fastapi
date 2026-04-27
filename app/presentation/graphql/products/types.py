@@ -29,3 +29,12 @@ class ProductType:
     sku: str
     stock: int
     product_model: ProductModelType | None = None
+
+
+@strawberry.input
+class CreateProductInput:
+    name: str
+    price: float
+    sku: str
+    stock: int = 0
+    product_model_id: int | None = None

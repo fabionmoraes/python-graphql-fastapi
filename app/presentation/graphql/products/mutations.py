@@ -1,10 +1,13 @@
 import strawberry
 from graphql import GraphQLError
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.infrastructure.persistence.models.product_model import ProductCatalogModel, ProductModel
-from app.presentation.graphql.products.types import ProductModelType, ProductType
+from app.presentation.graphql.products.types import CreateProductInput, ProductModelType, ProductType
+from app.presentation.graphql.products.validators import CreateProductInputValidator
+from app.presentation.graphql.validation import raise_graphql_validation_error
 
 
 @strawberry.type
@@ -31,29 +34,38 @@ class ProductMutation:
     @strawberry.mutation
     def create_product(
         self,
-        name: str,
-        price: float,
-        sku: str,
-        stock: int = 0,
-        product_model_id: int | None = None,
+        input: CreateProductInput,
     ) -> ProductType:
+        try:
+            payload = CreateProductInputValidator.model_validate(
+                {
+                    "name": input.name,
+                    "price": input.price,
+                    "sku": input.sku,
+                    "stock": input.stock,
+                    "product_model_id": input.product_model_id,
+                }
+            )
+        except ValidationError as exc:
+            raise_graphql_validation_error(exc)
+
         db: Session = SessionLocal()
         try:
-            if product_model_id is not None:
+            if payload.product_model_id is not None:
                 linked_model = (
                     db.query(ProductCatalogModel)
-                    .filter(ProductCatalogModel.id == product_model_id)
+                    .filter(ProductCatalogModel.id == payload.product_model_id)
                     .first()
                 )
                 if linked_model is None:
                     raise GraphQLError("product_model_id not found.")
 
             row = ProductModel(
-                name=name,
-                price=price,
-                sku=sku,
-                stock=stock,
-                product_model_id=product_model_id,
+                name=payload.name,
+                price=payload.price,
+                sku=payload.sku,
+                stock=payload.stock,
+                product_model_id=payload.product_model_id,
             )
             db.add(row)
             db.commit()
