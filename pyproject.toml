@@ -1,0 +1,23 @@
+[project]
+name = "graphqlestudo"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Fabio Moraes",email = "fabio.moraes@radixeng.com.br"}
+]
+requires-python = ">=3.14,<4.0"
+dependencies = [
+    "fastapi (>=0.136.0,<0.137.0)",
+    "strawberry-graphql (>=0.314.3,<0.315.0)",
+    "uvicorn (>=0.46.0,<0.47.0)",
+    "sqlalchemy (>=2.0.43,<3.0.0)",
+    "pyjwt (>=2.10.1,<3.0.0)"
+]
+
+[tool.poetry]
+package-mode = false
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
