@@ -150,7 +150,7 @@ mutation {
 
 ```graphql
 mutation {
-  createUser(input: { username: "fabio", email: "fabio@mail.com", role: "USER" }) {
+  createUser(input: { username: "fabio", email: "fabio@mail.com", password: "senha1234", role: "USER" }) {
     id
     username
     email
@@ -163,7 +163,7 @@ mutation {
 
 ```graphql
 mutation {
-  login(input: { username: "fabio", email: "fabio@mail.com" }) {
+  login(input: { email: "fabio@mail.com", password: "senha1234" }) {
     accessToken
     tokenType
   }

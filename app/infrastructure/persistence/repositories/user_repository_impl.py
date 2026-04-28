@@ -6,7 +6,7 @@ from app.infrastructure.persistence.models.user_model import UserModel
 
 
 class UserRepositoryImpl(UserRepository):
-    def __init__(self, db: Session):
+    def __init__(self, db: Session) -> None:
         self.db = db
 
     def list_users(self) -> list[UserEntity]:
@@ -19,10 +19,10 @@ class UserRepositoryImpl(UserRepository):
             return None
         return self._to_entity(row)
 
-    def get_user_by_credentials(self, username: str, email: str) -> UserEntity | None:
+    def get_user_by_email(self, email: str) -> UserEntity | None:
         row = (
             self.db.query(UserModel)
-            .filter(UserModel.username == username, UserModel.email == email)
+            .filter(UserModel.email == email)
             .first()
         )
         if row is None:
@@ -33,12 +33,14 @@ class UserRepositoryImpl(UserRepository):
         self,
         username: str,
         email: str,
+        password_hash: str,
         role: str,
         is_active: bool,
     ) -> UserEntity:
         row = UserModel(
             username=username,
             email=email,
+            password_hash=password_hash,
             role=role,
             is_active=is_active,
         )
@@ -53,6 +55,7 @@ class UserRepositoryImpl(UserRepository):
             id=row.id,
             username=row.username,
             email=row.email,
+            password_hash=row.password_hash,
             role=row.role,
             is_active=row.is_active,
         )

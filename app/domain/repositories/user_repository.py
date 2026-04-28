@@ -13,7 +13,7 @@ class UserRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_user_by_credentials(self, username: str, email: str) -> UserEntity | None:
+    def get_user_by_email(self, email: str) -> UserEntity | None:
         raise NotImplementedError
 
     @abstractmethod
@@ -21,6 +21,7 @@ class UserRepository(ABC):
         self,
         username: str,
         email: str,
+        password_hash: str,
         role: str,
         is_active: bool,
     ) -> UserEntity:

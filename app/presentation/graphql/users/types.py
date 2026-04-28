@@ -20,11 +20,12 @@ class LoginResponseType:
 class CreateUserInput:
     username: str
     email: str
+    password: str
     role: str = "USER"
     is_active: bool = True
 
 
 @strawberry.input
 class LoginInput:
-    username: str
     email: str
+    password: str

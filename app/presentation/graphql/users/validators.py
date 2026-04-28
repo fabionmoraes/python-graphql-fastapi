@@ -11,12 +11,21 @@ SafeUsername = Annotated[
         pattern=r"^[A-Za-z0-9_.-]+$",
     ),
 ]
+SafePassword = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=False,
+        min_length=8,
+        max_length=128,
+    ),
+]
 
 class CreateUserInputValidator(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     username: SafeUsername
     email: EmailStr
+    password: SafePassword
     role: Literal["USER", "ADMIN"] = "USER"
     is_active: bool = True
 
@@ -24,5 +33,5 @@ class CreateUserInputValidator(BaseModel):
 class LoginInputValidator(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-    username: SafeUsername
     email: EmailStr
+    password: SafePassword

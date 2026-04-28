@@ -1,3 +1,6 @@
+import base64
+import hashlib
+import os
 import sqlite3
 from pathlib import Path
 
@@ -6,6 +9,14 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
+
+
+def hash_password(password: str) -> str:
+    salt = os.urandom(16)
+    derived = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)
+    salt_b64 = base64.b64encode(salt).decode("ascii")
+    derived_b64 = base64.b64encode(derived).decode("ascii")
+    return f"{salt_b64}${derived_b64}"
 
 # Drop tables to guarantee consistent schema for local tests
 cursor.execute("DROP TABLE IF EXISTS orders")
@@ -45,6 +56,7 @@ CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
     role TEXT NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 1
 )
@@ -94,14 +106,14 @@ VALUES (?, ?, ?, ?, ?)
 
 # 3 test users (active) for login
 users = [
-    ("admin", "admin@example.com", "ADMIN", 1),
-    ("jdoe", "jdoe@example.com", "EDITOR", 1),
-    ("viewer", "viewer@example.com", "VIEWER", 1),
+    ("admin", "admin@example.com", hash_password("admin1234"), "ADMIN", 1),
+    ("jdoe", "jdoe@example.com", hash_password("jdoe1234"), "EDITOR", 1),
+    ("viewer", "viewer@example.com", hash_password("viewer1234"), "VIEWER", 1),
 ]
 cursor.executemany(
     """
-INSERT INTO users (username, email, role, is_active)
-VALUES (?, ?, ?, ?)
+INSERT INTO users (username, email, password_hash, role, is_active)
+VALUES (?, ?, ?, ?, ?)
 """,
     users,
 )

@@ -35,6 +35,7 @@ class UserMutation:
                 {
                     "username": input.username,
                     "email": input.email,
+                    "password": input.password,
                     "role": input.role,
                     "is_active": input.is_active,
                 }
@@ -48,6 +49,7 @@ class UserMutation:
         user = use_case.execute(
             username=payload.username,
             email=payload.email,
+            password=payload.password,
             role=payload.role,
             is_active=payload.is_active,
         )
@@ -58,8 +60,8 @@ class UserMutation:
         try:
             payload = LoginInputValidator.model_validate(
                 {
-                    "username": input.username,
                     "email": input.email,
+                    "password": input.password,
                 }
             )
         except ValidationError as exc:
@@ -68,7 +70,7 @@ class UserMutation:
         db = get_db_from_context(info)
         repository = UserRepositoryImpl(db)
         use_case = LoginUserUseCase(repository)
-        result = use_case.execute(username=payload.username, email=payload.email)
+        result = use_case.execute(email=payload.email, password=payload.password)
         return LoginResponseType(
             access_token=result.access_token,
             token_type=result.token_type,
