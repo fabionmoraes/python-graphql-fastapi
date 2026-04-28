@@ -4,8 +4,15 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
-from app.infrastructure.persistence.models.product_model import ProductCatalogModel, ProductModel
-from app.presentation.graphql.products.types import CreateProductInput, ProductModelType, ProductType
+from app.domain.entities.product import ProductEntity
+from app.infrastructure.persistence.repositories.product_repository_impl import (
+    ProductRepositoryImpl,
+)
+from app.presentation.graphql.products.types import (
+    CreateProductInput,
+    ProductModelType,
+    ProductType,
+)
 from app.presentation.graphql.products.validators import CreateProductInputValidator
 from app.presentation.graphql.validation import raise_graphql_validation_error
 
@@ -13,21 +20,21 @@ from app.presentation.graphql.validation import raise_graphql_validation_error
 @strawberry.type
 class ProductMutation:
     @staticmethod
-    def _to_type(row: ProductModel) -> ProductType:
+    def _to_type(product: ProductEntity) -> ProductType:
         related = (
             ProductModelType(
-                id=row.product_model.id,
-                title=row.product_model.title,
+                id=product.product_model.id,
+                title=product.product_model.title,
             )
-            if row.product_model
+            if product.product_model
             else None
         )
         return ProductType(
-            id=row.id,
-            name=row.name,
-            price=row.price,
-            sku=row.sku,
-            stock=row.stock,
+            id=product.id,
+            name=product.name,
+            price=product.price,
+            sku=product.sku,
+            stock=product.stock,
             product_model=related,
         )
 
@@ -51,25 +58,19 @@ class ProductMutation:
 
         db: Session = SessionLocal()
         try:
+            repository = ProductRepositoryImpl(db)
             if payload.product_model_id is not None:
-                linked_model = (
-                    db.query(ProductCatalogModel)
-                    .filter(ProductCatalogModel.id == payload.product_model_id)
-                    .first()
-                )
+                linked_model = repository.get_product_model_by_id(payload.product_model_id)
                 if linked_model is None:
                     raise GraphQLError("product_model_id not found.")
 
-            row = ProductModel(
+            product = repository.create_product(
                 name=payload.name,
                 price=payload.price,
                 sku=payload.sku,
                 stock=payload.stock,
                 product_model_id=payload.product_model_id,
             )
-            db.add(row)
-            db.commit()
-            db.refresh(row)
-            return ProductMutation._to_type(row)
+            return ProductMutation._to_type(product)
         finally:
             db.close()

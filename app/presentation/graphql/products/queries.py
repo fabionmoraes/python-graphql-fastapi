@@ -2,7 +2,14 @@ import strawberry
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
-from app.infrastructure.persistence.models.product_model import ProductCatalogModel, ProductModel
+from app.domain.entities.product import (
+    ProductEntity,
+    ProductWhereEntity,
+    StringComparisonEntity,
+)
+from app.infrastructure.persistence.repositories.product_repository_impl import (
+    ProductRepositoryImpl,
+)
 from app.presentation.graphql.products.types import (
     ProductModelType,
     ProductType,
@@ -10,57 +17,55 @@ from app.presentation.graphql.products.types import (
     StringComparisonExp,
 )
 
+
 @strawberry.type
 class ProductQuery:
     @staticmethod
-    def _apply_string_filters(query, column, filter_exp: StringComparisonExp | None):
-        if filter_exp is None:
-            return query
-        if filter_exp._eq is not None:
-            query = query.filter(column == filter_exp._eq)
-        if filter_exp._like is not None:
-            query = query.filter(column.like(f"%{filter_exp._like}%"))
-        if filter_exp._in:
-            query = query.filter(column.in_(filter_exp._in))
-        return query
-
-    @staticmethod
-    def _to_type(row: ProductModel) -> ProductType:
+    def _to_type(product: ProductEntity) -> ProductType:
         related = (
             ProductModelType(
-                id=row.product_model.id,
-                title=row.product_model.title,
+                id=product.product_model.id,
+                title=product.product_model.title,
             )
-            if row.product_model
+            if product.product_model
             else None
         )
         return ProductType(
-            id=row.id,
-            name=row.name,
-            price=row.price,
-            sku=row.sku,
-            stock=row.stock,
+            id=product.id,
+            name=product.name,
+            price=product.price,
+            sku=product.sku,
+            stock=product.stock,
             product_model=related,
+        )
+
+    @staticmethod
+    def _to_string_comparison(filter_exp: StringComparisonExp | None) -> StringComparisonEntity | None:
+        if filter_exp is None:
+            return None
+        return StringComparisonEntity(
+            eq=filter_exp._eq,
+            like=filter_exp._like,
+            one_of=filter_exp._in,
+        )
+
+    @staticmethod
+    def _to_where_entity(where: ProductWhereInput | None) -> ProductWhereEntity | None:
+        if where is None:
+            return None
+        return ProductWhereEntity(
+            name=ProductQuery._to_string_comparison(where.name),
+            sku=ProductQuery._to_string_comparison(where.sku),
+            model_title=ProductQuery._to_string_comparison(where.model_title),
         )
 
     @strawberry.field
     def products(self, where: ProductWhereInput | None = None) -> list[ProductType]:
         db: Session = SessionLocal()
         try:
-            query = db.query(ProductModel).outerjoin(
-                ProductCatalogModel,
-                ProductModel.product_model_id == ProductCatalogModel.id,
-            )
-            if where is not None:
-                query = ProductQuery._apply_string_filters(query, ProductModel.name, where.name)
-                query = ProductQuery._apply_string_filters(query, ProductModel.sku, where.sku)
-                query = ProductQuery._apply_string_filters(
-                    query,
-                    ProductCatalogModel.title,
-                    where.model_title,
-                )
-            rows = query.all()
-            return [ProductQuery._to_type(row) for row in rows]
+            repository = ProductRepositoryImpl(db)
+            data = repository.list_products(ProductQuery._to_where_entity(where))
+            return [ProductQuery._to_type(product) for product in data]
         finally:
             db.close()
 
@@ -68,9 +73,10 @@ class ProductQuery:
     def product(self, id: int) -> ProductType | None:
         db: Session = SessionLocal()
         try:
-            row = db.query(ProductModel).filter(ProductModel.id == id).first()
-            if row is None:
+            repository = ProductRepositoryImpl(db)
+            product = repository.get_product_by_id(id)
+            if product is None:
                 return None
-            return ProductQuery._to_type(row)
+            return ProductQuery._to_type(product)
         finally:
             db.close()
