@@ -1,5 +1,7 @@
 import strawberry
+from strawberry.extensions import QueryDepthLimiter
 
+from app.core.config import settings
 from app.presentation.graphql.orders.mutations import OrderMutation
 from app.presentation.graphql.orders.queries import OrderQuery
 from app.presentation.graphql.products.mutations import ProductMutation
@@ -18,4 +20,8 @@ class Mutation(ProductMutation, UserMutation, OrderMutation):
     pass
 
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+schema = strawberry.Schema(
+    query=Query,
+    mutation=Mutation,
+    extensions=[QueryDepthLimiter(max_depth=settings.GRAPHQL_MAX_QUERY_DEPTH)],
+)

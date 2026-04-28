@@ -14,6 +14,7 @@ class Settings:
     JWT_SECRET = "change-me-in-production"
     JWT_ALGORITHM = "HS256"
     JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
+    GRAPHQL_MAX_QUERY_DEPTH = int(os.getenv("GRAPHQL_MAX_QUERY_DEPTH", "8"))
 
 
 settings = Settings()
