@@ -7,6 +7,7 @@ from app.core.dependencies import get_db
 from app.infrastructure.persistence.models.order_model import OrderModel
 from app.infrastructure.persistence.models.product_model import ProductModel
 from app.infrastructure.persistence.models.user_model import UserModel
+from app.presentation.graphql.loaders import create_product_by_id_loader
 from app.presentation.graphql.schema import schema
 
 # Force model imports for metadata registration.
@@ -17,7 +18,11 @@ Base.metadata.create_all(bind=engine)
 
 
 def get_graphql_context(request: Request, db: Session = Depends(get_db)) -> dict:
-    return {"request": request, "db": db}
+    return {
+        "request": request,
+        "db": db,
+        "product_by_id_loader": create_product_by_id_loader(db),
+    }
 
 
 graphql_app = GraphQLRouter(schema, context_getter=get_graphql_context)

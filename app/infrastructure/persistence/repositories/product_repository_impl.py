@@ -35,6 +35,12 @@ class ProductRepositoryImpl(ProductRepository):
             return None
         return self._to_entity(row)
 
+    def list_products_by_ids(self, product_ids: list[int]) -> list[ProductEntity]:
+        if not product_ids:
+            return []
+        rows = self.db.query(ProductModel).filter(ProductModel.id.in_(product_ids)).all()
+        return [self._to_entity(row) for row in rows]
+
     def get_product_model_by_id(self, product_model_id: int) -> ProductModelEntity | None:
         row = (
             self.db.query(ProductCatalogModel)

@@ -17,6 +17,10 @@ class ProductRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def list_products_by_ids(self, product_ids: list[int]) -> list[ProductEntity]:
+        raise NotImplementedError
+
+    @abstractmethod
     def get_product_model_by_id(self, product_model_id: int) -> ProductModelEntity | None:
         raise NotImplementedError
 
