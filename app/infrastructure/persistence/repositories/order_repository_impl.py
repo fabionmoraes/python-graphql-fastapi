@@ -1,7 +1,8 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.order import OrderEntity
+from app.domain.entities.pagination import PageResult
 from app.domain.repositories.order_repository import OrderRepository
 from app.infrastructure.persistence.models.order_model import OrderModel
 
@@ -23,6 +24,27 @@ class OrderRepositoryImpl(OrderRepository):
         if row is None:
             return None
         return self._to_entity(row)
+
+    async def list_orders_paginated(
+        self, first: int, after_id: int | None
+    ) -> PageResult[OrderEntity]:
+        total = (
+            await self.db.execute(select(func.count(OrderModel.id)))
+        ).scalar_one()
+
+        stmt = select(OrderModel).order_by(OrderModel.id.asc()).limit(first + 1)
+        if after_id is not None:
+            stmt = stmt.where(OrderModel.id > after_id)
+
+        rows = (await self.db.execute(stmt)).scalars().all()
+        has_next = len(rows) > first
+        entities = [self._to_entity(r) for r in rows[:first]]
+        return PageResult(
+            items=entities,
+            total_count=total,
+            has_next_page=has_next,
+            has_previous_page=after_id is not None,
+        )
 
     async def create_order(
         self, product_id: int, quantity: int, total_price: float

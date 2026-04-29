@@ -2,6 +2,11 @@ import strawberry
 from strawberry.types import Info
 
 from app.presentation.graphql.context import get_container_from_context
+from app.presentation.graphql.pagination import (
+    Connection,
+    build_connection,
+    decode_cursor,
+)
 from app.presentation.graphql.permissions import IsAuthenticated
 from app.presentation.graphql.products.mappers import (
     to_product_type,
@@ -14,13 +19,20 @@ from app.presentation.graphql.products.types import ProductType, ProductWhereInp
 class ProductQuery:
     @strawberry.field(permission_classes=[IsAuthenticated])
     async def products(
-        self, info: Info, where: ProductWhereInput | None = None
-    ) -> list[ProductType]:
+        self,
+        info: Info,
+        first: int = 20,
+        after: str | None = None,
+        where: ProductWhereInput | None = None,
+    ) -> Connection[ProductType]:
         container = get_container_from_context(info)
-        data = await container.product_use_case.list_products(
-            where=to_product_where_entity(where)
+        after_id = decode_cursor(after) if after else None
+        page = await container.product_use_case.list_products_paginated(
+            first=first,
+            after_id=after_id,
+            where=to_product_where_entity(where),
         )
-        return [to_product_type(product) for product in data]
+        return build_connection(page, to_product_type, lambda p: p.id)
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     async def product(self, info: Info, id: int) -> ProductType | None:

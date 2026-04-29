@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from app.domain.entities.pagination import PageResult
 from app.domain.entities.product import (
     ProductEntity,
     ProductModelEntity,
@@ -12,6 +13,12 @@ class ProductRepository(ABC):
     async def list_products(
         self, where: ProductWhereEntity | None = None
     ) -> list[ProductEntity]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def list_products_paginated(
+        self, first: int, after_id: int | None, where: ProductWhereEntity | None = None
+    ) -> PageResult[ProductEntity]:
         raise NotImplementedError
 
     @abstractmethod

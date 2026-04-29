@@ -1,6 +1,7 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.entities.pagination import PageResult
 from app.domain.entities.user import UserEntity
 from app.domain.repositories.user_repository import UserRepository
 from app.infrastructure.persistence.models.user_model import UserModel
@@ -14,6 +15,27 @@ class UserRepositoryImpl(UserRepository):
         result = await self.db.execute(select(UserModel))
         rows = result.scalars().all()
         return [self._to_entity(row) for row in rows]
+
+    async def list_users_paginated(
+        self, first: int, after_id: int | None
+    ) -> PageResult[UserEntity]:
+        total = (
+            await self.db.execute(select(func.count(UserModel.id)))
+        ).scalar_one()
+
+        stmt = select(UserModel).order_by(UserModel.id.asc()).limit(first + 1)
+        if after_id is not None:
+            stmt = stmt.where(UserModel.id > after_id)
+
+        rows = (await self.db.execute(stmt)).scalars().all()
+        has_next = len(rows) > first
+        entities = [self._to_entity(r) for r in rows[:first]]
+        return PageResult(
+            items=entities,
+            total_count=total,
+            has_next_page=has_next,
+            has_previous_page=after_id is not None,
+        )
 
     async def get_user_by_id(self, user_id: int) -> UserEntity | None:
         result = await self.db.execute(

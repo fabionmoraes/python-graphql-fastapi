@@ -1,7 +1,8 @@
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.domain.entities.pagination import PageResult
 from app.domain.entities.product import (
     ProductEntity,
     ProductModelEntity,
@@ -39,6 +40,45 @@ class ProductRepositoryImpl(ProductRepository):
         result = await self.db.execute(stmt)
         rows = result.scalars().unique().all()
         return [self._to_entity(row) for row in rows]
+
+    async def list_products_paginated(
+        self, first: int, after_id: int | None, where: ProductWhereEntity | None = None
+    ) -> PageResult[ProductEntity]:
+        base_stmt = (
+            select(ProductModel)
+            .outerjoin(
+                ProductCatalogModel,
+                ProductModel.product_model_id == ProductCatalogModel.id,
+            )
+        )
+        if where is not None:
+            base_stmt = self._apply_string_filters(base_stmt, ProductModel.name, where.name)
+            base_stmt = self._apply_string_filters(base_stmt, ProductModel.sku, where.sku)
+            base_stmt = self._apply_string_filters(
+                base_stmt, ProductCatalogModel.title, where.model_title
+            )
+
+        count_stmt = select(func.count()).select_from(base_stmt.subquery())
+        total = (await self.db.execute(count_stmt)).scalar_one()
+
+        stmt = (
+            base_stmt
+            .options(selectinload(ProductModel.product_model))
+            .order_by(ProductModel.id.asc())
+            .limit(first + 1)
+        )
+        if after_id is not None:
+            stmt = stmt.where(ProductModel.id > after_id)
+
+        rows = (await self.db.execute(stmt)).scalars().unique().all()
+        has_next = len(rows) > first
+        entities = [self._to_entity(r) for r in rows[:first]]
+        return PageResult(
+            items=entities,
+            total_count=total,
+            has_next_page=has_next,
+            has_previous_page=after_id is not None,
+        )
 
     async def get_product_by_id(self, product_id: int) -> ProductEntity | None:
         stmt = (

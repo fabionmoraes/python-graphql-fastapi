@@ -1,11 +1,18 @@
 from abc import ABC, abstractmethod
 
+from app.domain.entities.pagination import PageResult
 from app.domain.entities.user import UserEntity
 
 
 class UserRepository(ABC):
     @abstractmethod
     async def list_users(self) -> list[UserEntity]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def list_users_paginated(
+        self, first: int, after_id: int | None
+    ) -> PageResult[UserEntity]:
         raise NotImplementedError
 
     @abstractmethod
