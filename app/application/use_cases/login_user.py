@@ -9,8 +9,8 @@ class LoginUserUseCase:
     def __init__(self, repository: UserRepository) -> None:
         self.repository = repository
 
-    def execute(self, email: str, password: str) -> LoginResponseDTO:
-        user = self.repository.get_user_by_email(email=email)
+    async def execute(self, email: str, password: str) -> LoginResponseDTO:
+        user = await self.repository.get_user_by_email(email=email)
         if user is None or not user.is_active:
             raise GraphQLError("Invalid credentials.")
         if not verify_password(password=password, encoded_password=user.password_hash):

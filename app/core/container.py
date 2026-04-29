@@ -1,6 +1,6 @@
 from functools import cached_property
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.use_cases.create_user import CreateUserUseCase
 from app.application.use_cases.login_user import LoginUserUseCase
@@ -19,7 +19,7 @@ from app.infrastructure.persistence.repositories.user_repository_impl import (
 
 
 class Container:
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
     @cached_property

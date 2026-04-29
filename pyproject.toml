@@ -18,6 +18,8 @@ pyjwt = "^2.10"
 pydantic = "^2.11"
 email-validator = "^2.2"
 python-dotenv = "^1.1.1"
+aiosqlite = "^0.22.1"
+greenlet = "^3.5.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"

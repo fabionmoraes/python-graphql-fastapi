@@ -8,13 +8,15 @@ class ProductUseCase:
     def __init__(self, repository: ProductRepository) -> None:
         self.repository = repository
 
-    def list_products(self, where: ProductWhereEntity | None = None) -> list[ProductEntity]:
-        return self.repository.list_products(where=where)
+    async def list_products(
+        self, where: ProductWhereEntity | None = None
+    ) -> list[ProductEntity]:
+        return await self.repository.list_products(where=where)
 
-    def get_product_by_id(self, product_id: int) -> ProductEntity | None:
-        return self.repository.get_product_by_id(product_id=product_id)
+    async def get_product_by_id(self, product_id: int) -> ProductEntity | None:
+        return await self.repository.get_product_by_id(product_id=product_id)
 
-    def create_product(
+    async def create_product(
         self,
         name: str,
         price: float,
@@ -23,11 +25,11 @@ class ProductUseCase:
         product_model_id: int | None,
     ) -> ProductEntity:
         if product_model_id is not None:
-            linked_model = self.repository.get_product_model_by_id(product_model_id)
+            linked_model = await self.repository.get_product_model_by_id(product_model_id)
             if linked_model is None:
                 raise GraphQLError("product_model_id not found.")
 
-        return self.repository.create_product(
+        return await self.repository.create_product(
             name=name,
             price=price,
             sku=sku,

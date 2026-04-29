@@ -9,23 +9,27 @@ from app.domain.entities.product import (
 
 class ProductRepository(ABC):
     @abstractmethod
-    def list_products(self, where: ProductWhereEntity | None = None) -> list[ProductEntity]:
+    async def list_products(
+        self, where: ProductWhereEntity | None = None
+    ) -> list[ProductEntity]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_product_by_id(self, product_id: int) -> ProductEntity | None:
+    async def get_product_by_id(self, product_id: int) -> ProductEntity | None:
         raise NotImplementedError
 
     @abstractmethod
-    def list_products_by_ids(self, product_ids: list[int]) -> list[ProductEntity]:
+    async def list_products_by_ids(self, product_ids: list[int]) -> list[ProductEntity]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_product_model_by_id(self, product_model_id: int) -> ProductModelEntity | None:
+    async def get_product_model_by_id(
+        self, product_model_id: int
+    ) -> ProductModelEntity | None:
         raise NotImplementedError
 
     @abstractmethod
-    def create_product(
+    async def create_product(
         self,
         name: str,
         price: float,

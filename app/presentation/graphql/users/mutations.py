@@ -20,7 +20,7 @@ from app.presentation.graphql.validation import raise_graphql_validation_error
 @strawberry.type
 class UserMutation:
     @strawberry.mutation
-    def create_user(
+    async def create_user(
         self,
         info: Info,
         input: CreateUserInput,
@@ -39,7 +39,7 @@ class UserMutation:
             raise_graphql_validation_error(exc)
 
         container = get_container_from_context(info)
-        user = container.create_user_use_case.execute(
+        user = await container.create_user_use_case.execute(
             username=payload.username,
             email=payload.email,
             password=payload.password,
@@ -49,7 +49,7 @@ class UserMutation:
         return to_user_type(user)
 
     @strawberry.mutation
-    def login(self, info: Info, input: LoginInput) -> LoginResponseType:
+    async def login(self, info: Info, input: LoginInput) -> LoginResponseType:
         try:
             payload = LoginInputValidator.model_validate(
                 {
@@ -61,7 +61,7 @@ class UserMutation:
             raise_graphql_validation_error(exc)
 
         container = get_container_from_context(info)
-        result = container.login_user_use_case.execute(
+        result = await container.login_user_use_case.execute(
             email=payload.email, password=payload.password
         )
         return LoginResponseType(

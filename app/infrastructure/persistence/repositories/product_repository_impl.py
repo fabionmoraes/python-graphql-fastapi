@@ -1,4 +1,6 @@
-from sqlalchemy.orm import Session
+from sqlalchemy import Select, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.domain.entities.product import (
     ProductEntity,
@@ -14,44 +16,66 @@ from app.infrastructure.persistence.models.product_model import (
 
 
 class ProductRepositoryImpl(ProductRepository):
-    def __init__(self, db: Session) -> None:
+    def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    def list_products(self, where: ProductWhereEntity | None = None) -> list[ProductEntity]:
-        query = self.db.query(ProductModel).outerjoin(
-            ProductCatalogModel,
-            ProductModel.product_model_id == ProductCatalogModel.id,
+    async def list_products(
+        self, where: ProductWhereEntity | None = None
+    ) -> list[ProductEntity]:
+        stmt = (
+            select(ProductModel)
+            .outerjoin(
+                ProductCatalogModel,
+                ProductModel.product_model_id == ProductCatalogModel.id,
+            )
+            .options(selectinload(ProductModel.product_model))
         )
         if where is not None:
-            query = self._apply_string_filters(query, ProductModel.name, where.name)
-            query = self._apply_string_filters(query, ProductModel.sku, where.sku)
-            query = self._apply_string_filters(query, ProductCatalogModel.title, where.model_title)
-        rows = query.all()
+            stmt = self._apply_string_filters(stmt, ProductModel.name, where.name)
+            stmt = self._apply_string_filters(stmt, ProductModel.sku, where.sku)
+            stmt = self._apply_string_filters(
+                stmt, ProductCatalogModel.title, where.model_title
+            )
+        result = await self.db.execute(stmt)
+        rows = result.scalars().unique().all()
         return [self._to_entity(row) for row in rows]
 
-    def get_product_by_id(self, product_id: int) -> ProductEntity | None:
-        row = self.db.query(ProductModel).filter(ProductModel.id == product_id).first()
+    async def get_product_by_id(self, product_id: int) -> ProductEntity | None:
+        stmt = (
+            select(ProductModel)
+            .where(ProductModel.id == product_id)
+            .options(selectinload(ProductModel.product_model))
+        )
+        result = await self.db.execute(stmt)
+        row = result.scalars().first()
         if row is None:
             return None
         return self._to_entity(row)
 
-    def list_products_by_ids(self, product_ids: list[int]) -> list[ProductEntity]:
+    async def list_products_by_ids(self, product_ids: list[int]) -> list[ProductEntity]:
         if not product_ids:
             return []
-        rows = self.db.query(ProductModel).filter(ProductModel.id.in_(product_ids)).all()
+        stmt = (
+            select(ProductModel)
+            .where(ProductModel.id.in_(product_ids))
+            .options(selectinload(ProductModel.product_model))
+        )
+        result = await self.db.execute(stmt)
+        rows = result.scalars().all()
         return [self._to_entity(row) for row in rows]
 
-    def get_product_model_by_id(self, product_model_id: int) -> ProductModelEntity | None:
-        row = (
-            self.db.query(ProductCatalogModel)
-            .filter(ProductCatalogModel.id == product_model_id)
-            .first()
+    async def get_product_model_by_id(
+        self, product_model_id: int
+    ) -> ProductModelEntity | None:
+        result = await self.db.execute(
+            select(ProductCatalogModel).where(ProductCatalogModel.id == product_model_id)
         )
+        row = result.scalars().first()
         if row is None:
             return None
         return ProductModelEntity(id=row.id, title=row.title)
 
-    def create_product(
+    async def create_product(
         self,
         name: str,
         price: float,
@@ -67,25 +91,25 @@ class ProductRepositoryImpl(ProductRepository):
             product_model_id=product_model_id,
         )
         self.db.add(row)
-        self.db.commit()
-        self.db.refresh(row)
+        await self.db.commit()
+        await self.db.refresh(row, attribute_names=["product_model"])
         return self._to_entity(row)
 
     @staticmethod
     def _apply_string_filters(
-        query: object,
+        stmt: Select,
         column: object,
         filter_exp: StringComparisonEntity | None,
-    ) -> object:
+    ) -> Select:
         if filter_exp is None:
-            return query
+            return stmt
         if filter_exp.eq is not None:
-            query = query.filter(column == filter_exp.eq)
+            stmt = stmt.where(column == filter_exp.eq)
         if filter_exp.like is not None:
-            query = query.filter(column.like(f"%{filter_exp.like}%"))
+            stmt = stmt.where(column.like(f"%{filter_exp.like}%"))
         if filter_exp.one_of:
-            query = query.filter(column.in_(filter_exp.one_of))
-        return query
+            stmt = stmt.where(column.in_(filter_exp.one_of))
+        return stmt
 
     @staticmethod
     def _to_entity(row: ProductModel) -> ProductEntity:

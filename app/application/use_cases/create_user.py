@@ -7,7 +7,7 @@ class CreateUserUseCase:
     def __init__(self, repository: UserRepository) -> None:
         self.repository = repository
 
-    def execute(
+    async def execute(
         self,
         username: str,
         email: str,
@@ -15,7 +15,7 @@ class CreateUserUseCase:
         role: str = "USER",
         is_active: bool = True,
     ) -> UserDTO:
-        user = self.repository.create_user(
+        user = await self.repository.create_user(
             username=username,
             email=email,
             password_hash=hash_password(password),

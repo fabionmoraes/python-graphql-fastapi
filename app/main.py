@@ -1,5 +1,8 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from strawberry.fastapi import GraphQLRouter
 
 from app.core.container import Container
@@ -8,22 +11,35 @@ from app.core.dependencies import get_db
 from app.infrastructure.persistence.models.order_model import OrderModel
 from app.infrastructure.persistence.models.product_model import ProductModel
 from app.infrastructure.persistence.models.user_model import UserModel
-from app.presentation.graphql.loaders import create_product_by_id_loader
+from app.presentation.graphql.loaders import create_loaders
 from app.presentation.graphql.schema import schema
 
 # Force model imports for metadata registration.
 _ = (UserModel, ProductModel, OrderModel)
 
-app = FastAPI(title="GraphQL Python + FastAPI + SQLAlchemy + JWT")
-Base.metadata.create_all(bind=engine)
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
 
 
-def get_graphql_context(request: Request, db: Session = Depends(get_db)) -> dict:
+app = FastAPI(
+    title="GraphQL Python + FastAPI + SQLAlchemy + JWT",
+    lifespan=lifespan,
+)
+
+
+async def get_graphql_context(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
     return {
         "request": request,
         "db": db,
         "container": Container(db),
-        "product_by_id_loader": create_product_by_id_loader(db),
+        "loaders": create_loaders(db),
     }
 
 

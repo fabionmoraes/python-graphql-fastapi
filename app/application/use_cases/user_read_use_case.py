@@ -6,8 +6,8 @@ class UserReadUseCase:
     def __init__(self, repository: UserRepository) -> None:
         self.repository = repository
 
-    def list_users(self) -> list[UserEntity]:
-        return self.repository.list_users()
+    async def list_users(self) -> list[UserEntity]:
+        return await self.repository.list_users()
 
-    def get_user_by_id(self, user_id: int) -> UserEntity | None:
-        return self.repository.get_user_by_id(user_id=user_id)
+    async def get_user_by_id(self, user_id: int) -> UserEntity | None:
+        return await self.repository.get_user_by_id(user_id=user_id)
