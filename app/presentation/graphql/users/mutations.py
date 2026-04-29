@@ -2,12 +2,7 @@ import strawberry
 from pydantic import ValidationError
 from strawberry.types import Info
 
-from app.application.use_cases.create_user import CreateUserUseCase
-from app.application.use_cases.login_user import LoginUserUseCase
-from app.infrastructure.persistence.repositories.user_repository_impl import (
-    UserRepositoryImpl,
-)
-from app.presentation.graphql.context import get_db_from_context
+from app.presentation.graphql.context import get_container_from_context
 from app.presentation.graphql.users.mappers import to_user_type
 from app.presentation.graphql.users.types import (
     CreateUserInput,
@@ -43,10 +38,8 @@ class UserMutation:
         except ValidationError as exc:
             raise_graphql_validation_error(exc)
 
-        db = get_db_from_context(info)
-        repository = UserRepositoryImpl(db)
-        use_case = CreateUserUseCase(repository)
-        user = use_case.execute(
+        container = get_container_from_context(info)
+        user = container.create_user_use_case.execute(
             username=payload.username,
             email=payload.email,
             password=payload.password,
@@ -67,10 +60,10 @@ class UserMutation:
         except ValidationError as exc:
             raise_graphql_validation_error(exc)
 
-        db = get_db_from_context(info)
-        repository = UserRepositoryImpl(db)
-        use_case = LoginUserUseCase(repository)
-        result = use_case.execute(email=payload.email, password=payload.password)
+        container = get_container_from_context(info)
+        result = container.login_user_use_case.execute(
+            email=payload.email, password=payload.password
+        )
         return LoginResponseType(
             access_token=result.access_token,
             token_type=result.token_type,

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from strawberry.dataloader import DataLoader
 from strawberry.types import Info
 
+from app.core.container import Container
 from app.domain.entities.product import ProductEntity
 
 
@@ -11,6 +12,13 @@ def get_db_from_context(info: Info) -> Session:
     if db is None:
         raise GraphQLError("Database context not available.")
     return db
+
+
+def get_container_from_context(info: Info) -> Container:
+    container = info.context.get("container")
+    if container is None:
+        raise GraphQLError("Container context not available.")
+    return container
 
 
 def get_product_loader_from_context(info: Info) -> DataLoader[int, ProductEntity | None]:

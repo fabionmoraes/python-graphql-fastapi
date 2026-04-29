@@ -2,6 +2,7 @@ from fastapi import Depends, FastAPI, Request
 from sqlalchemy.orm import Session
 from strawberry.fastapi import GraphQLRouter
 
+from app.core.container import Container
 from app.core.database import Base, engine
 from app.core.dependencies import get_db
 from app.infrastructure.persistence.models.order_model import OrderModel
@@ -21,6 +22,7 @@ def get_graphql_context(request: Request, db: Session = Depends(get_db)) -> dict
     return {
         "request": request,
         "db": db,
+        "container": Container(db),
         "product_by_id_loader": create_product_by_id_loader(db),
     }
 
