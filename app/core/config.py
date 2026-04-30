@@ -9,12 +9,17 @@ load_dotenv()
 
 class Settings:
     PROJECT_NAME = "GraphQL Estudo"
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
     DB_PATH = Path(os.getenv("DB_PATH", "db/app.db"))
     DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DB_PATH}")
     JWT_SECRET = "change-me-in-production"
     JWT_ALGORITHM = "HS256"
     JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
     GRAPHQL_MAX_QUERY_DEPTH = int(os.getenv("GRAPHQL_MAX_QUERY_DEPTH", "8"))
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT == "production"
 
 
 settings = Settings()
