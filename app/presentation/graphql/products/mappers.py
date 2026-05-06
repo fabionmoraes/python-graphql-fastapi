@@ -4,7 +4,7 @@ from app.domain.entities.product import (
     StringComparisonEntity,
 )
 from app.presentation.graphql.products.types import (
-    ProductModelType,
+    ProductCatalogType,
     ProductType,
     ProductWhereInput,
     StringComparisonExp,
@@ -13,11 +13,11 @@ from app.presentation.graphql.products.types import (
 
 def to_product_type(product: ProductEntity) -> ProductType:
     related = (
-        ProductModelType(
-            id=product.product_model.id,
-            title=product.product_model.title,
+        ProductCatalogType(
+            id=product.product_catalog.id,
+            title=product.product_catalog.title,
         )
-        if product.product_model
+        if product.product_catalog
         else None
     )
     return ProductType(
@@ -26,7 +26,8 @@ def to_product_type(product: ProductEntity) -> ProductType:
         price=product.price,
         sku=product.sku,
         stock=product.stock,
-        product_model=related,
+        product_catalog_id=product.product_catalog_id,
+        product_catalog=related,
     )
 
 

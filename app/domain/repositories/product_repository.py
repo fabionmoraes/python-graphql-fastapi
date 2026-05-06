@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from app.domain.entities.pagination import PageResult
 from app.domain.entities.product import (
     ProductEntity,
-    ProductModelEntity,
+    ProductCatalogEntity,
     ProductWhereEntity,
 )
 
@@ -30,18 +30,8 @@ class ProductRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_product_model_by_id(
-        self, product_model_id: int
-    ) -> ProductModelEntity | None:
+    async def get_product_catalog_by_id(
+        self, product_catalog_id: int
+    ) -> ProductCatalogEntity | None:
         raise NotImplementedError
 
-    @abstractmethod
-    async def create_product(
-        self,
-        name: str,
-        price: float,
-        sku: str,
-        stock: int,
-        product_model_id: int | None,
-    ) -> ProductEntity:
-        raise NotImplementedError

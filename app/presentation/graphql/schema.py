@@ -2,21 +2,11 @@ import strawberry
 from strawberry.extensions import DisableIntrospection, QueryDepthLimiter
 
 from app.core.config import settings
-from app.presentation.graphql.orders.mutations import OrderMutation
-from app.presentation.graphql.orders.queries import OrderQuery
-from app.presentation.graphql.products.mutations import ProductMutation
 from app.presentation.graphql.products.queries import ProductQuery
-from app.presentation.graphql.users.mutations import UserMutation
-from app.presentation.graphql.users.queries import UserQuery
 
 
 @strawberry.type
-class Query(ProductQuery, UserQuery, OrderQuery):
-    pass
-
-
-@strawberry.type
-class Mutation(ProductMutation, UserMutation, OrderMutation):
+class Query(ProductQuery):
     pass
 
 
@@ -27,6 +17,5 @@ if settings.is_production:
 
 schema = strawberry.Schema(
     query=Query,
-    mutation=Mutation,
     extensions=_extensions,
 )

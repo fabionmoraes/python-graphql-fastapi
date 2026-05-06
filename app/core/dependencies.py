@@ -1,10 +1,7 @@
-from collections.abc import AsyncGenerator
+from fastapi import Request
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.core.database import SessionLocal
+from app.core.trino import TrinoClient
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    async with SessionLocal() as db:
-        yield db
+def get_trino_client(request: Request) -> TrinoClient:
+    return request.app.state.trino

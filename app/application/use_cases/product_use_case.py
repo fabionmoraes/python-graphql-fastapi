@@ -28,23 +28,3 @@ class ProductUseCase:
     async def get_product_by_id(self, product_id: int) -> ProductEntity | None:
         return await self.repository.get_product_by_id(product_id=product_id)
 
-    async def create_product(
-        self,
-        name: str,
-        price: float,
-        sku: str,
-        stock: int,
-        product_model_id: int | None,
-    ) -> ProductEntity:
-        if product_model_id is not None:
-            linked_model = await self.repository.get_product_model_by_id(product_model_id)
-            if linked_model is None:
-                raise GraphQLError("product_model_id not found.")
-
-        return await self.repository.create_product(
-            name=name,
-            price=price,
-            sku=sku,
-            stock=stock,
-            product_model_id=product_model_id,
-        )

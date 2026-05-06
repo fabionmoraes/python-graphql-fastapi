@@ -17,7 +17,7 @@ from app.presentation.graphql.products.types import ProductType, ProductWhereInp
 
 @strawberry.type
 class ProductQuery:
-    @strawberry.field(permission_classes=[IsAuthenticated])
+    @strawberry.field
     async def products(
         self,
         info: Info,

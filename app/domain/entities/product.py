@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class ProductModelEntity:
+class ProductCatalogEntity:
     id: int
     title: str
 
@@ -28,4 +28,5 @@ class ProductEntity:
     price: float
     sku: str
     stock: int
-    product_model: ProductModelEntity | None = None
+    product_catalog_id: int | None = None
+    product_catalog: ProductCatalogEntity | None = None
