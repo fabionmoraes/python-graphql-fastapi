@@ -10,12 +10,10 @@ from app.domain.entities.product import (
     ProductWhereEntity,
     StringComparisonEntity,
 )
-from app.core.config import settings
 from app.domain.repositories.product_repository import ProductRepository
 
-
-_PRODUCTS_TABLE = settings.TRINO_TABLE_PRODUCTS
-_CATALOG_TABLE = settings.TRINO_TABLE_PRODUCT_CATALOG
+_PRODUCTS_TABLE = "mysql.demo.products"
+_CATALOG_TABLE = "postgresql.public.product_catalog"
 
 _BASE_SELECT = f"""
     SELECT
