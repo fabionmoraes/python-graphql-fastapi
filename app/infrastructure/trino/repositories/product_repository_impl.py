@@ -14,13 +14,8 @@ from app.core.config import settings
 from app.domain.repositories.product_repository import ProductRepository
 
 
-def _qualified(table: str) -> str:
-    parts = [p for p in [settings.TRINO_CATALOG, settings.TRINO_SCHEMA, table] if p]
-    return ".".join(parts)
-
-
-_PRODUCTS_TABLE = _qualified("products")
-_CATALOG_TABLE = _qualified("product_catalog")
+_PRODUCTS_TABLE = settings.TRINO_TABLE_PRODUCTS
+_CATALOG_TABLE = settings.TRINO_TABLE_PRODUCT_CATALOG
 
 _BASE_SELECT = f"""
     SELECT

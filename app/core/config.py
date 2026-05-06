@@ -25,6 +25,10 @@ class Settings:
     TRINO_HTTP_SCHEME = os.getenv("TRINO_HTTP_SCHEME", "http")
     TRINO_POOL_SIZE = int(os.getenv("TRINO_POOL_SIZE", "5"))
 
+    # Tabelas — caminhos completos catalog.schema.tabela
+    TRINO_TABLE_PRODUCTS = os.getenv("TRINO_TABLE_PRODUCTS", "")
+    TRINO_TABLE_PRODUCT_CATALOG = os.getenv("TRINO_TABLE_PRODUCT_CATALOG", "")
+
     @property
     def trino_sqlalchemy_url(self) -> str:
         scheme = "trino+https" if self.TRINO_HTTP_SCHEME == "https" else "trino"
