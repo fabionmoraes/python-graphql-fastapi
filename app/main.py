@@ -1,10 +1,12 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
+from fastapi.security import HTTPBasicCredentials
 from strawberry.fastapi import GraphQLRouter
 
 from app.core.container import Container
+from app.core.dependencies import require_basic_auth
 from app.core.trino import TrinoClient
 from app.presentation.graphql.schema import schema
 
@@ -24,7 +26,10 @@ app = FastAPI(
 )
 
 
-async def get_graphql_context(request: Request) -> dict:
+async def get_graphql_context(
+    request: Request,
+    _: HTTPBasicCredentials = Depends(require_basic_auth),
+) -> dict:
     trino: TrinoClient = request.app.state.trino
     return {
         "request": request,

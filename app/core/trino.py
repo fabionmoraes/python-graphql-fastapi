@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
+from trino.auth import BasicAuthentication
 
 from app.core.config import settings
 
@@ -27,8 +28,15 @@ class TrinoClient:
 
     @staticmethod
     def _create_factory() -> sessionmaker[Session]:
+        connect_args: dict = {}
+        if settings.TRINO_PASSWORD:
+            connect_args["auth"] = BasicAuthentication(
+                settings.TRINO_USER,
+                settings.TRINO_PASSWORD,
+            )
         engine = create_engine(
             settings.trino_sqlalchemy_url,
+            connect_args=connect_args,
             pool_size=settings.TRINO_POOL_SIZE,
             max_overflow=settings.TRINO_POOL_SIZE,
             pool_pre_ping=True,

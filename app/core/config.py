@@ -10,9 +10,8 @@ load_dotenv()
 class Settings:
     PROJECT_NAME = "GraphQL Estudo"
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-    JWT_SECRET = "change-me-in-production"
-    JWT_ALGORITHM = "HS256"
-    JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
+    API_USERNAME = os.getenv("API_USERNAME", "admin")
+    API_PASSWORD = os.getenv("API_PASSWORD", "change-me-in-production")
     GRAPHQL_MAX_QUERY_DEPTH = int(os.getenv("GRAPHQL_MAX_QUERY_DEPTH", "8"))
 
     # Trino
@@ -29,11 +28,10 @@ class Settings:
     def trino_sqlalchemy_url(self) -> str:
         scheme = "trino+https" if self.TRINO_HTTP_SCHEME == "https" else "trino"
         user = quote_plus(self.TRINO_USER)
-        credentials = f"{user}:{quote_plus(self.TRINO_PASSWORD)}" if self.TRINO_PASSWORD else user
         path = f"/{self.TRINO_CATALOG}" if self.TRINO_CATALOG else ""
         if path and self.TRINO_SCHEMA:
             path += f"/{self.TRINO_SCHEMA}"
-        return f"{scheme}://{credentials}@{self.TRINO_HOST}:{self.TRINO_PORT}{path}"
+        return f"{scheme}://{user}@{self.TRINO_HOST}:{self.TRINO_PORT}{path}"
 
     @property
     def is_production(self) -> bool:

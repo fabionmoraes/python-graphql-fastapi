@@ -7,7 +7,6 @@ from app.presentation.graphql.pagination import (
     build_connection,
     decode_cursor,
 )
-from app.presentation.graphql.permissions import IsAuthenticated
 from app.presentation.graphql.products.mappers import (
     to_product_type,
     to_product_where_entity,
@@ -34,7 +33,7 @@ class ProductQuery:
         )
         return build_connection(page, to_product_type, lambda p: p.id)
 
-    @strawberry.field(permission_classes=[IsAuthenticated])
+    @strawberry.field
     async def product(self, info: Info, id: int) -> ProductType | None:
         container = get_container_from_context(info)
         product = await container.product_use_case.get_product_by_id(id)
