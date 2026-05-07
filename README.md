@@ -13,14 +13,33 @@ API GraphQL construída com FastAPI e Strawberry, usando Trino como fonte única
 
 ## Arquitetura do projeto
 
-O projeto segue uma arquitetura em camadas com responsabilidades bem definidas:
+O projeto segue um fluxo em camadas com responsabilidades bem definidas:
 
-- `app/core`: configurações globais, cliente Trino, segurança e container de dependências.
-- `app/domain`: entidades de domínio e contratos de repositório (interfaces abstratas).
-- `app/infrastructure/trino`: implementações concretas de repositório usando Trino.
-- `app/presentation/graphql`: schema GraphQL, queries, tipos e paginação.
+```
+GraphQL Resolver
+   ↓
+Service
+   ↓
+Query Builder
+   ↓
+Repository (Trino)
+   ↓
+Trino SQL
+```
 
-O Trino é a única fonte de dados. Não há ORM, migrations ou banco local — o schema vive nos data sources externos (MySQL, PostgreSQL, etc.) acessados via Trino de forma federada.
+Cada camada tem uma responsabilidade única:
+
+| Camada | Responsabilidade |
+|---|---|
+| `graphql/utils/selection.py` | Extrai os campos pedidos no GraphQL como `dict` |
+| `graphql/queries/` | Recebe a requisição, chama o service, retorna o tipo GraphQL |
+| `services/` | Coordena o fluxo entre resolver e repositório |
+| `query_builders/trino/` | Monta o SQL com base nos campos selecionados e no mapeamento seguro |
+| `repositories/trino/mappings/` | Define o mapa seguro de campos GraphQL → colunas SQL e JOINs |
+| `repositories/trino/` | Executa o SQL e converte as linhas em entidades de domínio |
+| `infrastructure/trino/` | Cliente Trino: pool de conexões e execução async |
+
+O campo `selectedFields` percorre o caminho: resolver → service → query builder → repositório. Nenhum texto vindo diretamente do GraphQL toca o SQL — tudo passa pelo mapeamento em `mappings/`.
 
 ### Estrutura de pastas
 
@@ -28,28 +47,71 @@ O Trino é a única fonte de dados. Não há ORM, migrations ou banco local — 
 graphql-python/
 ├── app/
 │   ├── core/
-│   │   ├── config.py         # variáveis de ambiente e settings
-│   │   ├── container.py      # injeção de dependências
-│   │   ├── dependencies.py   # Basic Auth (FastAPI Depends)
-│   │   ├── security.py       # verificação de credenciais
-│   │   └── trino.py          # TrinoClient (pool + execução async)
+│   │   ├── config.py            # variáveis de ambiente e settings
+│   │   ├── container.py         # injeção de dependências (expõe services)
+│   │   ├── dependencies.py      # Basic Auth (FastAPI Depends)
+│   │   └── security.py          # verificação de credenciais
+│   │
 │   ├── domain/
-│   │   ├── entities/         # dataclasses de domínio (Product, etc.)
-│   │   └── repositories/     # interfaces abstratas de repositório
+│   │   └── entities/            # dataclasses de domínio (ProductEntity, etc.)
+│   │
+│   ├── graphql/
+│   │   ├── types/               # tipos Strawberry (@strawberry.type / @strawberry.input)
+│   │   ├── queries/             # resolvers GraphQL
+│   │   ├── utils/
+│   │   │   └── selection.py     # parse_selected_fields — genérico, retorna dict
+│   │   ├── pagination.py        # Connection, Edge, PageInfo, build_connection
+│   │   ├── context.py           # acesso ao container via contexto GraphQL
+│   │   └── schema.py            # schema principal
+│   │
+│   ├── services/
+│   │   └── product_service.py   # coordena fluxo entre resolver e repositório
+│   │
+│   ├── query_builders/
+│   │   └── trino/
+│   │       └── product_query_builder.py  # monta SELECT, JOINs, WHERE, ORDER BY, LIMIT
+│   │
+│   ├── repositories/
+│   │   └── trino/
+│   │       ├── mappings/
+│   │       │   └── product_fields.py     # whitelist segura: campo GraphQL → coluna SQL
+│   │       └── product_trino_repository.py  # executa SQL, converte row → entity
+│   │
 │   ├── infrastructure/
 │   │   └── trino/
-│   │       └── repositories/ # implementações concretas com SQL Trino
-│   └── presentation/
-│       └── graphql/
-│           ├── products/     # queries, tipos e mappers de produto
-│           ├── pagination.py # paginação cursor-based
-│           ├── context.py    # acesso ao container via contexto GraphQL
-│           └── schema.py     # schema principal
+│   │       └── client.py        # TrinoClient (pool + execução async)
+│   │
+│   └── main.py                  # FastAPI app, lifespan, rota GraphQL
 ├── .env
 ├── .env.example
 ├── pyproject.toml
 └── poetry.lock
 ```
+
+### Mapeamento seguro de campos
+
+O arquivo `repositories/trino/mappings/product_fields.py` é a única fonte de verdade entre campos GraphQL e colunas SQL. Nenhuma string vinda do cliente chega ao SQL diretamente.
+
+```python
+PRODUCT_FIELDS = {
+    "id":    {"column": "p.id"},
+    "name":  {"column": "p.name"},
+    "price": {"column": "p.price"},
+    "productCatalog": {
+        "join": "LEFT JOIN postgresql.public.product_catalog pc ON ...",
+        "fields": {
+            "id":    {"column": "pc.id"},
+            "title": {"column": "pc.title"},
+        },
+    },
+}
+```
+
+O `ProductQueryBuilder` itera esse mapa com os campos pedidos no GraphQL e constrói o SELECT e os JOINs necessários. Campos fora do mapa são ignorados silenciosamente.
+
+### Projeção de campos
+
+O JOIN com `product_catalog` só ocorre se o cliente pedir `productCatalog { ... }` na query. Queries que não pedem o campo aninhado executam sem JOIN. O `totalCount` na paginação também só dispara um COUNT no banco se o cliente incluir `totalCount` na query.
 
 ## Como instalar
 
@@ -128,12 +190,15 @@ O `TrinoClient` usa o dialeto `trino[sqlalchemy]` com `QueuePool` para reaprovei
 
 Queries com autenticação no Trino usam `BasicAuthentication` passada via `connect_args` — a senha nunca aparece na URL de conexão.
 
-As tabelas são referenciadas com o caminho completo `catalog.schema.table` diretamente no repositório, permitindo queries federadas entre diferentes fontes:
+As tabelas são referenciadas com o caminho completo `catalog.schema.table` diretamente no mapeamento, permitindo queries federadas entre diferentes fontes de dados:
 
 ```sql
-SELECT p.*, pc.title
+SELECT p.id AS id, p.name AS name, pc.id AS productCatalog_id, pc.title AS productCatalog_title
 FROM mysql.demo.products p
 LEFT JOIN postgresql.public.product_catalog pc ON p.product_catalog_id = pc.id
+WHERE p.name LIKE :name_like
+ORDER BY p.id ASC
+LIMIT :limit
 ```
 
 ## Exemplos de queries GraphQL
@@ -170,7 +235,7 @@ query {
 query {
   products(
     first: 5
-    where: { name: { like: "notebook" } }
+    where: { name: { _like: "notebook" } }
   ) {
     edges {
       node {
@@ -215,6 +280,24 @@ query {
   }
 }
 ```
+
+### Pedindo apenas campos necessários (sem JOIN)
+
+```graphql
+query {
+  products(first: 20) {
+    edges {
+      node {
+        id
+        name
+        price
+      }
+    }
+  }
+}
+```
+
+Nessa query o JOIN com `product_catalog` não é executado — o SQL gerado consulta apenas a tabela `products`.
 
 ## Comandos úteis
 
