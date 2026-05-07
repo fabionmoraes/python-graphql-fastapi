@@ -1,4 +1,5 @@
 import strawberry
+from graphql import GraphQLError
 from strawberry.types import Info
 
 from app.presentation.graphql.context import get_container_from_context
@@ -13,6 +14,8 @@ from app.presentation.graphql.products.mappers import (
 )
 from app.presentation.graphql.products.types import ProductType, ProductWhereInput
 
+_MAX_FIRST = 100
+
 
 @strawberry.type
 class ProductQuery:
@@ -24,9 +27,11 @@ class ProductQuery:
         after: str | None = None,
         where: ProductWhereInput | None = None,
     ) -> Connection[ProductType]:
+        if first < 1 or first > _MAX_FIRST:
+            raise GraphQLError(f"'first' must be between 1 and {_MAX_FIRST}.")
         container = get_container_from_context(info)
         after_id = decode_cursor(after) if after else None
-        page = await container.product_use_case.list_products_paginated(
+        page = await container.product_repository.list_products_paginated(
             first=first,
             after_id=after_id,
             where=to_product_where_entity(where),
@@ -36,7 +41,7 @@ class ProductQuery:
     @strawberry.field
     async def product(self, info: Info, id: int) -> ProductType | None:
         container = get_container_from_context(info)
-        product = await container.product_use_case.get_product_by_id(id)
+        product = await container.product_repository.get_product_by_id(id)
         if product is None:
             return None
         return to_product_type(product)
