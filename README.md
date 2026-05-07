@@ -1,54 +1,52 @@
-# GraphQL com FastAPI, Strawberry e SQLAlchemy
+# GraphQL com FastAPI, Strawberry e Trino
 
-API GraphQL construída com FastAPI e Strawberry, seguindo uma arquitetura em camadas (`core`, `application`, `domain`, `infrastructure`, `presentation`), com persistência em SQLite e autenticação JWT.
+API GraphQL construída com FastAPI e Strawberry, usando Trino como fonte única de dados. Serve como camada de acesso a dados federados para outras plataformas consumirem via GraphQL.
 
 ## Tecnologias utilizadas
 
 - Python 3.14
 - FastAPI
 - Strawberry GraphQL
-- SQLAlchemy 2
-- Pydantic 2 (validação de inputs das mutations)
-- PyJWT
+- Trino (com dialeto SQLAlchemy)
+- SQLAlchemy 2 (connection pooling e execução de queries)
 - Poetry
-- SQLite
 
 ## Arquitetura do projeto
 
-O projeto está organizado em camadas para separar responsabilidades:
+O projeto segue uma arquitetura em camadas com responsabilidades bem definidas:
 
-- `app/core`: configurações globais, banco de dados e segurança (JWT).
-- `app/domain`: entidades e contratos de repositório (regras de domínio).
-- `app/application`: casos de uso e DTOs da aplicação.
-- `app/infrastructure`: modelos ORM e implementações concretas de repositório.
-- `app/presentation/graphql`: schema GraphQL, queries, mutations, tipos e validadores.
+- `app/core`: configurações globais, cliente Trino, segurança e container de dependências.
+- `app/domain`: entidades de domínio e contratos de repositório (interfaces abstratas).
+- `app/infrastructure/trino`: implementações concretas de repositório usando Trino.
+- `app/presentation/graphql`: schema GraphQL, queries, tipos e paginação.
+
+O Trino é a única fonte de dados. Não há ORM, migrations ou banco local — o schema vive nos data sources externos (MySQL, PostgreSQL, etc.) acessados via Trino de forma federada.
 
 ### Estrutura de pastas
 
 ```text
 graphql-python/
 ├── app/
-│   ├── application/
-│   │   ├── dtos/
-│   │   └── use_cases/
 │   ├── core/
+│   │   ├── config.py         # variáveis de ambiente e settings
+│   │   ├── container.py      # injeção de dependências
+│   │   ├── dependencies.py   # Basic Auth (FastAPI Depends)
+│   │   ├── security.py       # verificação de credenciais
+│   │   └── trino.py          # TrinoClient (pool + execução async)
 │   ├── domain/
-│   │   ├── entities/
-│   │   └── repositories/
+│   │   ├── entities/         # dataclasses de domínio (Product, etc.)
+│   │   └── repositories/     # interfaces abstratas de repositório
 │   ├── infrastructure/
-│   │   └── persistence/
-│   │       ├── models/
-│   │       └── repositories/
+│   │   └── trino/
+│   │       └── repositories/ # implementações concretas com SQL Trino
 │   └── presentation/
 │       └── graphql/
-│           ├── orders/
-│           ├── products/
-│           ├── users/
-│           ├── schema.py
-│           └── validation.py
-├── db/
-├── main.py
-├── setup_db.py
+│           ├── products/     # queries, tipos e mappers de produto
+│           ├── pagination.py # paginação cursor-based
+│           ├── context.py    # acesso ao container via contexto GraphQL
+│           └── schema.py     # schema principal
+├── .env
+├── .env.example
 ├── pyproject.toml
 └── poetry.lock
 ```
@@ -57,8 +55,9 @@ graphql-python/
 
 ### 1) Pré-requisitos
 
-- Python 3.14 instalado
-- Poetry instalado
+- Python 3.14
+- Poetry
+- Trino acessível (local ou remoto)
 
 ### 2) Clonar e acessar o projeto
 
@@ -73,152 +72,159 @@ cd graphql-python
 poetry install
 ```
 
-### 4) (Opcional) Popular banco com dados iniciais
-
-Esse script recria as tabelas e insere dados de exemplo.
+### 4) Configurar variáveis de ambiente
 
 ```bash
-poetry run python setup_db.py
+cp .env.example .env
 ```
+
+Edite o `.env` com os dados do seu ambiente Trino e as credenciais da API.
 
 ## Como rodar
 
-### Subir API em modo desenvolvimento
-
 ```bash
-poetry run uvicorn main:app --reload
+poetry run uvicorn app.main:app --reload
 ```
 
 Aplicação disponível em:
 
-- API: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 - Endpoint GraphQL: [http://127.0.0.1:8000/graphql](http://127.0.0.1:8000/graphql)
 
-## GraphQL com Strawberry
+## Autenticação
 
-O schema é montado em `app/presentation/graphql/schema.py`, combinando:
+A API usa **HTTP Basic Auth**. Todas as requisições ao endpoint `/graphql` exigem o header:
 
-- `Query`: `ProductQuery`, `UserQuery`, `OrderQuery`
-- `Mutation`: `ProductMutation`, `UserMutation`, `OrderMutation`
-
-O roteamento GraphQL é feito no `main.py` com `GraphQLRouter(schema)` no prefixo `/graphql`.
-
-## Validação com Pydantic nas mutations
-
-As mutations recebem objetos `input` e validam dados com Pydantic antes de persistir no banco.
-
-Arquivos de validação:
-
-- `app/presentation/graphql/products/validators.py`
-- `app/presentation/graphql/users/validators.py`
-- `app/presentation/graphql/orders/validators.py`
-- `app/presentation/graphql/validation.py` (formatação do erro para GraphQL)
-
-Em caso de payload inválido, a API retorna erro GraphQL com detalhes do campo inválido.
-
-## Autenticação JWT
-
-Fluxo atual:
-
-1. `login` retorna `access_token`
-2. operações protegidas (ex.: criação de pedido) exigem header:
-   - `Authorization: Bearer <token>`
-
-Configurações em `app/core/config.py`:
-
-- `JWT_SECRET`
-- `JWT_ALGORITHM`
-- `JWT_EXPIRE_MINUTES`
-
-## Exemplos de operações GraphQL
-
-### Criar produto
-
-```graphql
-mutation {
-  createProduct(
-    input: { name: "Notebook", price: 3200, sku: "NOTEBOOK_001", stock: 5 }
-  ) {
-    id
-    name
-    sku
-  }
-}
+```
+Authorization: Basic <base64(username:password)>
 ```
 
-### Criar usuário
+As credenciais são configuradas no `.env`:
 
-```graphql
-mutation {
-  createUser(input: { username: "fabio", email: "fabio@mail.com", password: "senha1234", role: "USER" }) {
-    id
-    username
-    email
-    role
-  }
-}
+```env
+API_USERNAME=admin
+API_PASSWORD=sua-senha
 ```
 
-### Login
+No Insomnia ou Postman, use a aba **Auth → Basic Auth** e preencha usuário e senha diretamente.
 
-```graphql
-mutation {
-  login(input: { email: "fabio@mail.com", password: "senha1234" }) {
-    accessToken
-    tokenType
-  }
-}
+## Variáveis de ambiente
+
+| Variável | Descrição | Padrão |
+|---|---|---|
+| `ENVIRONMENT` | Ambiente da aplicação | `development` |
+| `API_USERNAME` | Usuário da API GraphQL | `admin` |
+| `API_PASSWORD` | Senha da API GraphQL | — |
+| `GRAPHQL_MAX_QUERY_DEPTH` | Profundidade máxima de queries | `8` |
+| `TRINO_HOST` | Host do Trino | `localhost` |
+| `TRINO_PORT` | Porta do Trino | `8080` |
+| `TRINO_USER` | Usuário do Trino | `trino` |
+| `TRINO_PASSWORD` | Senha do Trino (Basic Auth) | — |
+| `TRINO_HTTP_SCHEME` | `http` ou `https` | `http` |
+| `TRINO_POOL_SIZE` | Tamanho do connection pool | `5` |
+
+## Trino como fonte de dados
+
+O `TrinoClient` usa o dialeto `trino[sqlalchemy]` com `QueuePool` para reaproveitar conexões. Como o cliente Trino é síncrono, as queries rodam em um `ThreadPoolExecutor` para não bloquear o event loop do FastAPI.
+
+Queries com autenticação no Trino usam `BasicAuthentication` passada via `connect_args` — a senha nunca aparece na URL de conexão.
+
+As tabelas são referenciadas com o caminho completo `catalog.schema.table` diretamente no repositório, permitindo queries federadas entre diferentes fontes:
+
+```sql
+SELECT p.*, pc.title
+FROM mysql.demo.products p
+LEFT JOIN postgresql.public.product_catalog pc ON p.product_catalog_id = pc.id
 ```
 
-### Criar pedido (com token JWT)
+## Exemplos de queries GraphQL
 
-```graphql
-mutation {
-  createOrder(input: { productId: 1, quantity: 2, totalPrice: 6400 }) {
-    id
-    productId
-    quantity
-    totalPrice
-  }
-}
-```
-
-### Consultar produtos
+### Listar produtos com paginação
 
 ```graphql
 query {
-  products {
-    id
-    name
-    price
-    sku
-    stock
-    productModel {
-      id
-      title
+  products(first: 10) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        name
+        price
+        sku
+        stock
+        productCatalog {
+          id
+          title
+        }
+      }
     }
   }
 }
 ```
 
-## Banco de dados
+### Listar com filtros
 
-- Banco local SQLite em `db/app.db`
-- Tabelas criadas automaticamente em startup via `Base.metadata.create_all(bind=engine)`
-- Script `setup_db.py` pode ser usado para reset e seed de dados de teste
+```graphql
+query {
+  products(
+    first: 5
+    where: { name: { like: "notebook" } }
+  ) {
+    edges {
+      node {
+        id
+        name
+        price
+      }
+    }
+  }
+}
+```
+
+### Buscar produto por ID
+
+```graphql
+query {
+  product(id: 1) {
+    id
+    name
+    price
+    sku
+    stock
+  }
+}
+```
+
+### Paginação com cursor
+
+```graphql
+query {
+  products(first: 5, after: "<endCursor da página anterior>") {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        name
+      }
+    }
+  }
+}
+```
 
 ## Comandos úteis
 
 ```bash
-# Instalar/atualizar lock
-poetry lock
-
 # Instalar dependências
 poetry install
 
-# Rodar servidor
-poetry run uvicorn main:app --reload
+# Atualizar lock file
+poetry lock
 
-# Popular banco com dados de exemplo
-poetry run python setup_db.py
+# Rodar servidor em desenvolvimento
+poetry run uvicorn app.main:app --reload
 ```
