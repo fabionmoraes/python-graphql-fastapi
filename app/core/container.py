@@ -1,9 +1,8 @@
 from functools import cached_property
 
-from app.core.trino import TrinoClient
-from app.infrastructure.trino.repositories.product_repository_impl import (
-    ProductRepositoryImpl,
-)
+from app.infrastructure.trino.client import TrinoClient
+from app.repositories.trino.product_trino_repository import ProductTrinoRepository
+from app.services.product_service import ProductService
 
 
 class Container:
@@ -11,5 +10,9 @@ class Container:
         self.trino = trino
 
     @cached_property
-    def product_repository(self) -> ProductRepositoryImpl:
-        return ProductRepositoryImpl(self.trino)
+    def _product_repository(self) -> ProductTrinoRepository:
+        return ProductTrinoRepository(self.trino)
+
+    @cached_property
+    def product_service(self) -> ProductService:
+        return ProductService(self._product_repository)

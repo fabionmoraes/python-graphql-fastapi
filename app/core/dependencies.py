@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from app.core.security import verify_basic_credentials
-from app.core.trino import TrinoClient
+from app.infrastructure.trino.client import TrinoClient
 
 _http_basic = HTTPBasic()
 

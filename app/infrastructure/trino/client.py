@@ -12,13 +12,6 @@ from app.core.config import settings
 
 
 class TrinoClient:
-    """Fundação Trino do app — equivalente ao database.py do SQLAlchemy async.
-
-    O dialeto SQLAlchemy Trino é síncrono. Queries rodam no ThreadPoolExecutor
-    para não bloquear o event loop do FastAPI. O QueuePool do SQLAlchemy
-    gerencia o reuso de conexões automaticamente.
-    """
-
     def __init__(self) -> None:
         self._executor = ThreadPoolExecutor(
             max_workers=settings.TRINO_POOL_SIZE,
@@ -62,10 +55,6 @@ class TrinoClient:
         sql: str,
         params: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """Executa query e retorna lista de dicts.
-
-        Parâmetros usam estilo nomeado SQLAlchemy: WHERE id = :id
-        """
         loop = asyncio.get_running_loop()
         columns, rows = await loop.run_in_executor(
             self._executor, lambda: self._run(sql, params)
@@ -77,7 +66,6 @@ class TrinoClient:
         sql: str,
         params: dict[str, Any] | None = None,
     ) -> list[tuple[Any, ...]]:
-        """Executa query e retorna tuplas brutas."""
         loop = asyncio.get_running_loop()
         _, rows = await loop.run_in_executor(
             self._executor, lambda: self._run(sql, params)

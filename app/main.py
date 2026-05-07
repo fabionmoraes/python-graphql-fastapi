@@ -7,8 +7,8 @@ from strawberry.fastapi import GraphQLRouter
 
 from app.core.container import Container
 from app.core.dependencies import require_basic_auth
-from app.core.trino import TrinoClient
-from app.presentation.graphql.schema import schema
+from app.graphql.schema import schema
+from app.infrastructure.trino.client import TrinoClient
 
 
 @asynccontextmanager

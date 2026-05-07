@@ -30,12 +30,3 @@ class ProductType:
     stock: int
     product_catalog_id: int | None = None
     product_catalog: ProductCatalogType | None = None
-
-
-@strawberry.input
-class CreateProductInput:
-    name: str
-    price: float
-    sku: str
-    stock: int = 0
-    product_catalog_id: int | None = None

@@ -24,9 +24,9 @@ class ProductWhereEntity:
 @dataclass
 class ProductEntity:
     id: int
-    name: str
-    price: float
-    sku: str
-    stock: int
+    name: str | None = None
+    price: float | None = None
+    sku: str | None = None
+    stock: int | None = None
     product_catalog_id: int | None = None
     product_catalog: ProductCatalogEntity | None = None
