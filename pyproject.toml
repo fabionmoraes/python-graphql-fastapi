@@ -11,10 +11,9 @@ fastapi = "^0.136"
 fastapi-cli = "^0.0.20"
 strawberry-graphql = "^0.314"
 uvicorn = { extras = ["standard"], version = "^0.46" }
-pydantic = "^2.11"
-email-validator = "^2.2"
 python-dotenv = "^1.1.1"
 ibis-framework = {extras = ["trino"], version = "^12.0.0"}
+pydantic = ">=2.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"
