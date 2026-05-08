@@ -1,9 +1,10 @@
 from app.domain.entities.pagination import PageResult
 from app.domain.entities.product import ProductEntity, ProductWhereEntity
+from app.domain.product_repository import ProductRepository
 
 
 class ProductService:
-    def __init__(self, repository) -> None:
+    def __init__(self, repository: ProductRepository) -> None:
         self._repository = repository
 
     async def list_products(
