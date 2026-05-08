@@ -1,6 +1,6 @@
 from functools import cached_property
 
-from app.infrastructure.trino.client import TrinoClient
+from app.infrastructure.trino.ibis_client import IbisClient
 from app.repositories.trino.catalog_trino_repository import CatalogTrinoRepository
 from app.repositories.trino.product_trino_repository import ProductTrinoRepository
 from app.services.catalog_service import CatalogService
@@ -8,16 +8,16 @@ from app.services.product_service import ProductService
 
 
 class Container:
-    def __init__(self, trino: TrinoClient) -> None:
-        self.trino = trino
+    def __init__(self, client: IbisClient) -> None:
+        self._client = client
 
     @cached_property
     def _product_repository(self) -> ProductTrinoRepository:
-        return ProductTrinoRepository(self.trino)
+        return ProductTrinoRepository(self._client)
 
     @cached_property
     def _catalog_repository(self) -> CatalogTrinoRepository:
-        return CatalogTrinoRepository(self.trino)
+        return CatalogTrinoRepository(self._client)
 
     @cached_property
     def product_service(self) -> ProductService:

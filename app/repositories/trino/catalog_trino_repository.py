@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from app.domain.entities.pagination import PageResult
 from app.domain.entities.product import ProductCatalogEntity
-from app.infrastructure.trino.client import TrinoClient
-from app.query_builders.trino.catalog_query_builder import CatalogQueryBuilder
+from app.infrastructure.trino.ibis_client import IbisClient
+
+_CATALOG_DB: tuple[str, str] = ("postgresql", "public")
 
 
 class CatalogTrinoRepository:
-    def __init__(self, trino: TrinoClient) -> None:
-        self._trino = trino
-        self._builder = CatalogQueryBuilder()
+    def __init__(self, client: IbisClient) -> None:
+        self._client = client
+        self._catalogs = client.table("product_catalog", database=_CATALOG_DB)
 
     async def list_paginated(
         self,
@@ -18,20 +19,24 @@ class CatalogTrinoRepository:
         after_id: int | None,
         need_total: bool = False,
     ) -> PageResult[ProductCatalogEntity]:
-        sql, params = self._builder.build(selected_fields, after_id, first + 1)
+        c = self._catalogs
 
         total = 0
         if need_total:
-            count_sql, count_params = self._builder.build_count()
-            total_rows = await self._trino.execute(count_sql, count_params)
-            total = total_rows[0]["total"] if total_rows else 0
+            total = int(await self._client.execute_scalar(c.count()))
 
-        rows = await self._trino.execute(sql, params)
+        base = c.filter(c["id"] > after_id) if after_id is not None else c
+        expr = (
+            base.select(self._columns(selected_fields))
+            .order_by("id")
+            .limit(first + 1)
+        )
+
+        rows = await self._client.execute(expr)
         has_next = len(rows) > first
-        entities = [self._to_entity(r) for r in rows[:first]]
 
         return PageResult(
-            items=entities,
+            items=[self._to_entity(r) for r in rows[:first]],
             total_count=total,
             has_next_page=has_next,
             has_previous_page=after_id is not None,
@@ -40,13 +45,22 @@ class CatalogTrinoRepository:
     async def get_by_id(
         self, catalog_id: int, selected_fields: dict
     ) -> ProductCatalogEntity | None:
-        sql = self._builder.build_get_by_id(selected_fields)
-        rows = await self._trino.execute(sql, {"catalog_id": catalog_id})
+        c = self._catalogs
+        expr = (
+            c.filter(c["id"] == catalog_id)
+            .select(self._columns(selected_fields))
+            .limit(1)
+        )
+        rows = await self._client.execute(expr)
         return self._to_entity(rows[0]) if rows else None
+
+    def _columns(self, selected_fields: dict) -> list:
+        c = self._catalogs
+        cols = [c["id"]]
+        if "title" in selected_fields:
+            cols.append(c["title"])
+        return cols
 
     @staticmethod
     def _to_entity(row: dict) -> ProductCatalogEntity:
-        return ProductCatalogEntity(
-            id=row["id"],
-            title=row.get("title"),
-        )
+        return ProductCatalogEntity(id=row["id"], title=row.get("title"))

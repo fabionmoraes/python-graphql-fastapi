@@ -9,16 +9,16 @@ from app.core.container import Container
 from app.core.dependencies import require_basic_auth
 from app.graphql.loaders import Loaders
 from app.graphql.schema import schema
-from app.infrastructure.trino.client import TrinoClient
+from app.infrastructure.trino.ibis_client import IbisClient
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    app.state.trino = TrinoClient()
+    app.state.client = IbisClient()
     try:
         yield
     finally:
-        app.state.trino.close()
+        app.state.client.close()
 
 
 app = FastAPI(
@@ -31,8 +31,8 @@ async def get_graphql_context(
     request: Request,
     _: HTTPBasicCredentials = Depends(require_basic_auth),
 ) -> dict:
-    trino: TrinoClient = request.app.state.trino
-    container = Container(trino)
+    client: IbisClient = request.app.state.client
+    container = Container(client)
     return {
         "request": request,
         "container": container,

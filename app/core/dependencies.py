@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from app.core.security import verify_basic_credentials
-from app.infrastructure.trino.client import TrinoClient
+from app.infrastructure.trino.ibis_client import IbisClient
 
 _http_basic = HTTPBasic()
 
@@ -19,5 +19,5 @@ def require_basic_auth(
     return credentials
 
 
-def get_trino_client(request: Request) -> TrinoClient:
-    return request.app.state.trino
+def get_ibis_client(request: Request) -> IbisClient:
+    return request.app.state.client
