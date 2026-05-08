@@ -8,7 +8,7 @@ from app.domain.entities.product import (
 )
 from app.infrastructure.trino.client import TrinoClient
 from app.query_builders.trino.product_query_builder import ProductQueryBuilder
-from app.repositories.trino.mappings.product_fields import _CATALOG_TABLE, _PRODUCTS_TABLE
+from app.repositories.trino.mappings.product_fields import _CATALOG_TABLE
 
 
 class ProductTrinoRepository:
@@ -61,9 +61,24 @@ class ProductTrinoRepository:
         sql, params = self._builder.build(selected_fields, limit=len(product_ids))
         sql = sql.replace(
             "ORDER BY p.id ASC",
-            f"WHERE p.id IN ({placeholders})\n            ORDER BY p.id ASC",
+            f"WHERE p.id IN ({placeholders})\n ORDER BY p.id ASC",
         )
         params.update({f"id_{i}": pid for i, pid in enumerate(product_ids)})
+        rows = await self._trino.execute(sql, params)
+        return [self._to_entity(r) for r in rows]
+
+    async def list_by_catalog_ids(
+        self, catalog_ids: list[int], selected_fields: dict
+    ) -> list[ProductEntity]:
+        if not catalog_ids:
+            return []
+        placeholders = ", ".join(f":cat_{i}" for i in range(len(catalog_ids)))
+        sql, params = self._builder.build(selected_fields, limit=None)
+        sql = sql.replace(
+            "ORDER BY p.id ASC",
+            f"WHERE p.product_catalog_id IN ({placeholders})\n ORDER BY p.id ASC",
+        )
+        params.update({f"cat_{i}": cid for i, cid in enumerate(catalog_ids)})
         rows = await self._trino.execute(sql, params)
         return [self._to_entity(r) for r in rows]
 
@@ -78,7 +93,7 @@ class ProductTrinoRepository:
     def _to_entity(row: dict) -> ProductEntity:
         catalog_id = row.get("productCatalog_id")
         model = (
-            ProductCatalogEntity(id=catalog_id, title=row["productCatalog_title"])
+            ProductCatalogEntity(id=catalog_id, title=row.get("productCatalog_title"))
             if catalog_id is not None
             else None
         )

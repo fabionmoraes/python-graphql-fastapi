@@ -1,4 +1,5 @@
 import strawberry
+from strawberry.types import Info
 
 
 @strawberry.input
@@ -19,6 +20,16 @@ class ProductWhereInput:
 class ProductCatalogType:
     id: int
     title: str
+
+    @strawberry.field
+    async def products(self, info: Info) -> list["ProductType"]:
+        from app.graphql.types.mappers import to_product_type
+        from app.graphql.utils.selection import parse_selected_fields
+
+        loaders = info.context["loaders"]
+        selected_fields = parse_selected_fields(info)
+        entities = await loaders.get_products_by_catalog(selected_fields).load(self.id)
+        return [to_product_type(p) for p in entities]
 
 
 @strawberry.type

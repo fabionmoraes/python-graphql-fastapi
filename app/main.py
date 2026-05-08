@@ -7,6 +7,7 @@ from strawberry.fastapi import GraphQLRouter
 
 from app.core.container import Container
 from app.core.dependencies import require_basic_auth
+from app.graphql.loaders import Loaders
 from app.graphql.schema import schema
 from app.infrastructure.trino.client import TrinoClient
 
@@ -31,9 +32,11 @@ async def get_graphql_context(
     _: HTTPBasicCredentials = Depends(require_basic_auth),
 ) -> dict:
     trino: TrinoClient = request.app.state.trino
+    container = Container(trino)
     return {
         "request": request,
-        "container": Container(trino),
+        "container": container,
+        "loaders": Loaders(container),
     }
 
 

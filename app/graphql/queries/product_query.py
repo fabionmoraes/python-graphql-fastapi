@@ -2,39 +2,14 @@ import strawberry
 from graphql import GraphQLError
 from strawberry.types import Info
 
-from app.domain.entities.product import (
-    ProductEntity,
-    ProductWhereEntity,
-    StringComparisonEntity,
-)
+from app.domain.entities.product import ProductWhereEntity, StringComparisonEntity
 from app.graphql.context import get_container_from_context
 from app.graphql.pagination import Connection, build_connection, decode_cursor
-from app.graphql.types.product_type import (
-    ProductCatalogType,
-    ProductType,
-    ProductWhereInput,
-    StringComparisonExp,
-)
+from app.graphql.types.mappers import to_product_type
+from app.graphql.types.product_type import ProductType, ProductWhereInput, StringComparisonExp
 from app.graphql.utils.selection import parse_selected_fields
 
 _MAX_FIRST = 100
-
-
-def _to_product_type(product: ProductEntity) -> ProductType:
-    catalog = (
-        ProductCatalogType(id=product.product_catalog.id, title=product.product_catalog.title)
-        if product.product_catalog
-        else None
-    )
-    return ProductType(
-        id=product.id,
-        name=product.name,
-        price=product.price,
-        sku=product.sku,
-        stock=product.stock,
-        product_catalog_id=product.product_catalog_id,
-        product_catalog=catalog,
-    )
 
 
 def _to_string_comparison(exp: StringComparisonExp | None) -> StringComparisonEntity | None:
@@ -79,7 +54,7 @@ class ProductQuery:
             where=_to_where_entity(where),
             need_total=need_total,
         )
-        return build_connection(page, _to_product_type, lambda p: p.id)
+        return build_connection(page, to_product_type, lambda p: p.id)
 
     @strawberry.field
     async def product(self, info: Info, id: int) -> ProductType | None:
@@ -88,4 +63,4 @@ class ProductQuery:
         product = await container.product_service.get_product(id, selected_fields)
         if product is None:
             return None
-        return _to_product_type(product)
+        return to_product_type(product)

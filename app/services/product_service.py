@@ -29,3 +29,15 @@ class ProductService:
         selected_fields: dict,
     ) -> ProductEntity | None:
         return await self._repository.get_by_id(product_id, selected_fields)
+
+    async def list_by_catalog_ids_grouped(
+        self, catalog_ids: list[int], selected_fields: dict
+    ) -> list[list[ProductEntity]]:
+        products = await self._repository.list_by_catalog_ids(catalog_ids, selected_fields)
+
+        grouped: dict[int, list[ProductEntity]] = {}
+        for p in products:
+            if p.product_catalog_id is not None:
+                grouped.setdefault(p.product_catalog_id, []).append(p)
+
+        return [grouped.get(cid, []) for cid in catalog_ids]

@@ -26,6 +26,10 @@ class ProductRepository(Protocol):
         self, product_ids: list[int], selected_fields: dict
     ) -> list[ProductEntity]: ...
 
+    async def list_by_catalog_ids(
+        self, catalog_ids: list[int], selected_fields: dict
+    ) -> list[ProductEntity]: ...
+
     async def get_catalog_by_id(
         self, product_catalog_id: int
     ) -> ProductCatalogEntity | None: ...

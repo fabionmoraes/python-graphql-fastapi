@@ -13,7 +13,7 @@ class ProductQueryBuilder:
         selected_fields: dict,
         where: ProductWhereEntity | None = None,
         after_id: int | None = None,
-        limit: int = 100,
+        limit: int | None = 100,
     ) -> tuple[str, dict]:
         columns, joins = self._parse_fields(selected_fields, where)
         where_clause, params = self._build_where(where)
@@ -23,8 +23,11 @@ class ProductQueryBuilder:
             where_clause += f" {connector} p.id > :after_id"
             params["after_id"] = after_id
 
-        params["limit"] = limit
         join_sql = "\n    ".join(joins)
+        limit_clause = ""
+        if limit is not None:
+            params["limit"] = limit
+            limit_clause = "LIMIT :limit"
 
         sql = f"""
             SELECT {", ".join(columns)}
@@ -32,7 +35,7 @@ class ProductQueryBuilder:
             {join_sql}
             {where_clause}
             ORDER BY p.id ASC
-            LIMIT :limit
+            {limit_clause}
         """
         return sql, params
 

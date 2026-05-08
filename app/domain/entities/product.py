@@ -4,7 +4,7 @@ from dataclasses import dataclass
 @dataclass
 class ProductCatalogEntity:
     id: int
-    title: str
+    title: str | None = None
 
 
 @dataclass
