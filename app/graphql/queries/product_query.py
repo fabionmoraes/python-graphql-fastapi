@@ -7,9 +7,8 @@ from app.graphql.context import get_container_from_context
 from app.graphql.pagination import Connection, build_connection, decode_cursor
 from app.graphql.types.mappers import to_product_type
 from app.graphql.types.product_type import ProductType, ProductWhereInput, StringComparisonExp
+from app.graphql.utils.constants import MAX_FIRST
 from app.graphql.utils.selection import parse_selected_fields
-
-_MAX_FIRST = 100
 
 
 def _to_string_comparison(exp: StringComparisonExp | None) -> StringComparisonEntity | None:
@@ -38,8 +37,8 @@ class ProductQuery:
         after: str | None = None,
         where: ProductWhereInput | None = None,
     ) -> Connection[ProductType]:
-        if first < 1 or first > _MAX_FIRST:
-            raise GraphQLError(f"'first' must be between 1 and {_MAX_FIRST}.")
+        if first < 1 or first > MAX_FIRST:
+            raise GraphQLError(f"'first' must be between 1 and {MAX_FIRST}.")
 
         container = get_container_from_context(info)
         all_fields = parse_selected_fields(info)

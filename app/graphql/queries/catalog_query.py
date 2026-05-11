@@ -7,8 +7,7 @@ from app.graphql.pagination import Connection, build_connection, decode_cursor
 from app.graphql.types.mappers import to_catalog_type
 from app.graphql.types.product_type import ProductCatalogType
 from app.graphql.utils.selection import parse_selected_fields
-
-_MAX_FIRST = 100
+from app.graphql.utils.constants import MAX_FIRST
 
 
 @strawberry.type
@@ -20,8 +19,8 @@ class CatalogQuery:
         first: int = 20,
         after: str | None = None,
     ) -> Connection[ProductCatalogType]:
-        if first < 1 or first > _MAX_FIRST:
-            raise GraphQLError(f"'first' must be between 1 and {_MAX_FIRST}.")
+        if first < 1 or first > MAX_FIRST:
+            raise GraphQLError(f"'first' must be between 1 and {MAX_FIRST}.")
 
         container = get_container_from_context(info)
         all_fields = parse_selected_fields(info)
