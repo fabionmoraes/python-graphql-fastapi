@@ -1,14 +1,14 @@
 # GraphQL com FastAPI, Strawberry e Trino
 
-API GraphQL construída com FastAPI e Strawberry, usando Trino como fonte única de dados. Serve como camada de acesso a dados federados para outras plataformas consumirem via GraphQL.
+API GraphQL construída com FastAPI e Strawberry, usando Trino como fonte única de dados via **Ibis Framework**. Serve como camada de acesso a dados federados para outras plataformas consumirem via GraphQL.
 
 ## Tecnologias utilizadas
 
 - Python 3.14
 - FastAPI
 - Strawberry GraphQL
-- Trino (com dialeto SQLAlchemy)
-- SQLAlchemy 2 (connection pooling e execução de queries)
+- Trino (via Ibis Framework)
+- Ibis Framework `ibis-framework[trino]` (construção de expressões e execução async)
 - Poetry
 
 ## Arquitetura do projeto
@@ -20,26 +20,21 @@ GraphQL Resolver
    ↓
 Service
    ↓
-Query Builder
+Repository (Ibis expressions → Trino SQL)
    ↓
-Repository (Trino)
-   ↓
-Trino SQL
+Trino
 ```
-
-Cada camada tem uma responsabilidade única:
 
 | Camada | Responsabilidade |
 |---|---|
 | `graphql/utils/selection.py` | Extrai os campos pedidos no GraphQL como `dict` |
 | `graphql/queries/` | Recebe a requisição, chama o service, retorna o tipo GraphQL |
+| `graphql/loaders.py` | DataLoaders Strawberry para resolver relações N+1 |
 | `services/` | Coordena o fluxo entre resolver e repositório |
-| `query_builders/trino/` | Monta o SQL com base nos campos selecionados e no mapeamento seguro |
-| `repositories/trino/mappings/` | Define o mapa seguro de campos GraphQL → colunas SQL e JOINs |
-| `repositories/trino/` | Executa o SQL e converte as linhas em entidades de domínio |
-| `infrastructure/trino/` | Cliente Trino: pool de conexões e execução async |
+| `repositories/trino/` | Constrói expressões Ibis, executa via `IbisClient` e converte rows em entidades |
+| `infrastructure/trino/ibis_client.py` | `IbisClient`: conexão Ibis/Trino e execução async via ThreadPoolExecutor |
 
-O campo `selectedFields` percorre o caminho: resolver → service → query builder → repositório. Nenhum texto vindo diretamente do GraphQL toca o SQL — tudo passa pelo mapeamento em `mappings/`.
+O campo `selectedFields` percorre o caminho: resolver → service → repositório. Dentro do repositório o método `_columns` decide quais colunas e JOINs incluir com base nos campos pedidos — nenhuma string arbitrária do cliente toca o SQL.
 
 ### Estrutura de pastas
 
@@ -53,33 +48,39 @@ graphql-python/
 │   │   └── security.py          # verificação de credenciais
 │   │
 │   ├── domain/
-│   │   └── entities/            # dataclasses de domínio (ProductEntity, etc.)
+│   │   ├── entities/
+│   │   │   ├── pagination.py    # PageResult genérico
+│   │   │   └── product.py       # ProductEntity, ProductCatalogEntity, ProductWhereEntity
+│   │   ├── product_repository.py   # interface ProductRepository
+│   │   └── catalog_repository.py   # interface CatalogRepository
 │   │
 │   ├── graphql/
-│   │   ├── types/               # tipos Strawberry (@strawberry.type / @strawberry.input)
-│   │   ├── queries/             # resolvers GraphQL
+│   │   ├── types/
+│   │   │   ├── product_type.py  # tipos Strawberry (ProductType, ProductCatalogType, inputs)
+│   │   │   └── mappers.py       # conversão entity → tipo Strawberry
+│   │   ├── queries/
+│   │   │   ├── product_query.py # resolvers: products, product
+│   │   │   └── catalog_query.py # resolvers: productCatalogs, productCatalog
+│   │   ├── loaders.py           # DataLoaders (N+1 prevention)
 │   │   ├── utils/
-│   │   │   └── selection.py     # parse_selected_fields — genérico, retorna dict
+│   │   │   ├── selection.py     # parse_selected_fields — retorna dict de campos pedidos
+│   │   │   └── constants.py     # MAX_FIRST e outras constantes
 │   │   ├── pagination.py        # Connection, Edge, PageInfo, build_connection
 │   │   ├── context.py           # acesso ao container via contexto GraphQL
 │   │   └── schema.py            # schema principal
 │   │
 │   ├── services/
-│   │   └── product_service.py   # coordena fluxo entre resolver e repositório
-│   │
-│   ├── query_builders/
-│   │   └── trino/
-│   │       └── product_query_builder.py  # monta SELECT, JOINs, WHERE, ORDER BY, LIMIT
+│   │   ├── product_service.py   # list_products, get_product, list_by_catalog_ids_grouped
+│   │   └── catalog_service.py   # list_catalogs, get_catalog
 │   │
 │   ├── repositories/
 │   │   └── trino/
-│   │       ├── mappings/
-│   │       │   └── product_fields.py     # whitelist segura: campo GraphQL → coluna SQL
-│   │       └── product_trino_repository.py  # executa SQL, converte row → entity
+│   │       ├── product_trino_repository.py  # expressões Ibis para products + joins com catalog
+│   │       └── catalog_trino_repository.py  # expressões Ibis para product_catalog
 │   │
 │   ├── infrastructure/
 │   │   └── trino/
-│   │       └── client.py        # TrinoClient (pool + execução async)
+│   │       └── ibis_client.py   # IbisClient: conexão Ibis, cache de tabelas, execução async
 │   │
 │   └── main.py                  # FastAPI app, lifespan, rota GraphQL
 ├── .env
@@ -88,30 +89,20 @@ graphql-python/
 └── poetry.lock
 ```
 
-### Mapeamento seguro de campos
+### Projeção de campos e JOINs sob demanda
 
-O arquivo `repositories/trino/mappings/product_fields.py` é a única fonte de verdade entre campos GraphQL e colunas SQL. Nenhuma string vinda do cliente chega ao SQL diretamente.
+O método `_columns` em cada repositório analisa o `dict` de campos pedidos e inclui apenas as colunas necessárias. O JOIN entre `products` e `product_catalog` só ocorre quando o cliente pedir `productCatalog { ... }` ou usar o filtro `modelTitle`. O `totalCount` na paginação só dispara um `COUNT` se o cliente incluir `totalCount` na query.
 
 ```python
-PRODUCT_FIELDS = {
-    "id":    {"column": "p.id"},
-    "name":  {"column": "p.name"},
-    "price": {"column": "p.price"},
-    "productCatalog": {
-        "join": "LEFT JOIN postgresql.public.product_catalog pc ON ...",
-        "fields": {
-            "id":    {"column": "pc.id"},
-            "title": {"column": "pc.title"},
-        },
-    },
-}
+# JOIN só é incluído se o cliente pedir productCatalog ou filtrar por modelTitle
+needs_join = "productCatalog" in selected_fields or (
+    where is not None and where.model_title is not None
+)
 ```
 
-O `ProductQueryBuilder` itera esse mapa com os campos pedidos no GraphQL e constrói o SELECT e os JOINs necessários. Campos fora do mapa são ignorados silenciosamente.
+### DataLoader e relação N+1
 
-### Projeção de campos
-
-O JOIN com `product_catalog` só ocorre se o cliente pedir `productCatalog { ... }` na query. Queries que não pedem o campo aninhado executam sem JOIN. O `totalCount` na paginação também só dispara um COUNT no banco se o cliente incluir `totalCount` na query.
+`ProductCatalogType` expõe um campo `products` que carrega os produtos de um catálogo. Para evitar N+1 queries, o resolver usa um `DataLoader` configurado em `graphql/loaders.py`. Uma única query em lote busca todos os produtos dos catálogos solicitados e os agrupa por `catalog_id`.
 
 ## Como instalar
 
@@ -182,24 +173,22 @@ No Insomnia ou Postman, use a aba **Auth → Basic Auth** e preencha usuário e 
 | `TRINO_USER` | Usuário do Trino | `trino` |
 | `TRINO_PASSWORD` | Senha do Trino (Basic Auth) | — |
 | `TRINO_HTTP_SCHEME` | `http` ou `https` | `http` |
-| `TRINO_POOL_SIZE` | Tamanho do connection pool | `5` |
+| `TRINO_POOL_SIZE` | Workers no ThreadPoolExecutor | `5` |
+| `TRINO_CATALOG` | Catálogo padrão do Trino | — |
+| `TRINO_SCHEMA` | Schema padrão do Trino | — |
 
 ## Trino como fonte de dados
 
-O `TrinoClient` usa o dialeto `trino[sqlalchemy]` com `QueuePool` para reaproveitar conexões. Como o cliente Trino é síncrono, as queries rodam em um `ThreadPoolExecutor` para não bloquear o event loop do FastAPI.
+O `IbisClient` usa `ibis.trino.connect` para estabelecer a conexão. Como o cliente Trino é síncrono, as queries rodam em um `ThreadPoolExecutor` para não bloquear o event loop do FastAPI. Os resultados chegam como `DataFrame` do pandas e são convertidos para `list[dict]`.
 
-Queries com autenticação no Trino usam `BasicAuthentication` passada via `connect_args` — a senha nunca aparece na URL de conexão.
+As tabelas são referenciadas com o caminho completo `(catalog, schema)` passado via `client.table(name, database=(catalog, schema))`, permitindo queries federadas entre fontes distintas:
 
-As tabelas são referenciadas com o caminho completo `catalog.schema.table` diretamente no mapeamento, permitindo queries federadas entre diferentes fontes de dados:
-
-```sql
-SELECT p.id AS id, p.name AS name, pc.id AS productCatalog_id, pc.title AS productCatalog_title
-FROM mysql.demo.products p
-LEFT JOIN postgresql.public.product_catalog pc ON p.product_catalog_id = pc.id
-WHERE p.name LIKE :name_like
-ORDER BY p.id ASC
-LIMIT :limit
+```python
+_PRODUCTS_DB: tuple[str, str] = ("mysql", "demo")
+_CATALOG_DB:  tuple[str, str] = ("postgresql", "public")
 ```
+
+Autenticação no Trino usa `BasicAuthentication` passada diretamente na conexão — a senha nunca aparece na URL.
 
 ## Exemplos de queries GraphQL
 
@@ -229,20 +218,19 @@ query {
 }
 ```
 
-### Listar com filtros
+### Filtrar por nome, SKU ou título do catálogo
 
 ```graphql
 query {
   products(
     first: 5
-    where: { name: { _like: "notebook" } }
+    where: {
+      name: { _like: "notebook" }
+      modelTitle: { _eq: "Linha Pro" }
+    }
   ) {
     edges {
-      node {
-        id
-        name
-        price
-      }
+      node { id name price }
     }
   }
 }
@@ -272,26 +260,50 @@ query {
       endCursor
     }
     edges {
+      node { id name }
+    }
+  }
+}
+```
+
+### Listar catálogos com seus produtos (relação inversa via DataLoader)
+
+```graphql
+query {
+  productCatalogs(first: 10) {
+    edges {
       node {
         id
-        name
+        title
+        products {
+          id
+          name
+          price
+        }
       }
     }
   }
 }
 ```
 
-### Pedindo apenas campos necessários (sem JOIN)
+### Buscar catálogo por ID
+
+```graphql
+query {
+  productCatalog(id: 3) {
+    id
+    title
+  }
+}
+```
+
+### Pedir apenas campos necessários (sem JOIN)
 
 ```graphql
 query {
   products(first: 20) {
     edges {
-      node {
-        id
-        name
-        price
-      }
+      node { id name price }
     }
   }
 }
@@ -310,4 +322,10 @@ poetry lock
 
 # Rodar servidor em desenvolvimento
 poetry run uvicorn app.main:app --reload
+
+# Lint
+poetry run ruff check .
+
+# Testes com cobertura
+poetry run pytest --cov
 ```
