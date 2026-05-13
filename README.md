@@ -27,11 +27,11 @@ Trino
 
 | Camada | Responsabilidade |
 |---|---|
-| `graphql/utils/selection.py` | Extrai os campos pedidos no GraphQL como `dict` |
-| `graphql/queries/` | Recebe a requisição, chama o service, retorna o tipo GraphQL |
-| `graphql/loaders.py` | DataLoaders Strawberry para resolver relações N+1 |
+| `infrastructure/graphql/utils/selection.py` | Extrai os campos pedidos no GraphQL como `dict` |
+| `infrastructure/graphql/queries/` | Recebe a requisição, chama o service, retorna o tipo GraphQL |
+| `infrastructure/graphql/loaders.py` | DataLoaders Strawberry para resolver relações N+1 |
 | `services/` | Coordena o fluxo entre resolver e repositório |
-| `repositories/trino/` | Constrói expressões Ibis, executa via `IbisClient` e converte rows em entidades |
+| `infrastructure/trino/repositories/` | Constrói expressões Ibis, executa via `IbisClient` e converte rows em entidades |
 | `infrastructure/trino/ibis_client.py` | `IbisClient`: conexão Ibis/Trino e execução async via ThreadPoolExecutor |
 
 O campo `selectedFields` percorre o caminho: resolver → service → repositório. Dentro do repositório o método `_columns` decide quais colunas e JOINs incluir com base nos campos pedidos — nenhuma string arbitrária do cliente toca o SQL.
@@ -54,33 +54,31 @@ graphql-python/
 │   │   ├── product_repository.py   # interface ProductRepository
 │   │   └── catalog_repository.py   # interface CatalogRepository
 │   │
-│   ├── graphql/
-│   │   ├── types/
-│   │   │   ├── product_type.py  # tipos Strawberry (ProductType, ProductCatalogType, inputs)
-│   │   │   └── mappers.py       # conversão entity → tipo Strawberry
-│   │   ├── queries/
-│   │   │   ├── product_query.py # resolvers: products, product
-│   │   │   └── catalog_query.py # resolvers: productCatalogs, productCatalog
-│   │   ├── loaders.py           # DataLoaders (N+1 prevention)
-│   │   ├── utils/
-│   │   │   ├── selection.py     # parse_selected_fields — retorna dict de campos pedidos
-│   │   │   └── constants.py     # MAX_FIRST e outras constantes
-│   │   ├── pagination.py        # Connection, Edge, PageInfo, build_connection
-│   │   ├── context.py           # acesso ao container via contexto GraphQL
-│   │   └── schema.py            # schema principal
+│   ├── infrastructure/
+│   │   ├── graphql/
+│   │   │   ├── types/
+│   │   │   │   ├── product_type.py  # tipos Strawberry (ProductType, ProductCatalogType, inputs)
+│   │   │   │   └── mappers.py       # conversão entity → tipo Strawberry
+│   │   │   ├── queries/
+│   │   │   │   ├── product_query.py # resolvers: products, product
+│   │   │   │   └── catalog_query.py # resolvers: productCatalogs, productCatalog
+│   │   │   ├── loaders.py           # DataLoaders (N+1 prevention)
+│   │   │   ├── utils/
+│   │   │   │   ├── selection.py     # parse_selected_fields — retorna dict de campos pedidos
+│   │   │   │   └── constants.py     # MAX_FIRST e outras constantes
+│   │   │   ├── pagination.py        # Connection, Edge, PageInfo, build_connection
+│   │   │   ├── context.py           # acesso ao container via contexto GraphQL
+│   │   │   └── schema.py            # schema principal
+│   │   │
+│   │   └── trino/
+│   │       ├── ibis_client.py       # IbisClient: conexão Ibis, cache de tabelas, execução async
+│   │       └── repositories/
+│   │           ├── product_repository_impl.py  # expressões Ibis para products + joins com catalog
+│   │           └── catalog_repository_impl.py  # expressões Ibis para product_catalog
 │   │
 │   ├── services/
 │   │   ├── product_service.py   # list_products, get_product, list_by_catalog_ids_grouped
 │   │   └── catalog_service.py   # list_catalogs, get_catalog
-│   │
-│   ├── repositories/
-│   │   └── trino/
-│   │       ├── product_trino_repository.py  # expressões Ibis para products + joins com catalog
-│   │       └── catalog_trino_repository.py  # expressões Ibis para product_catalog
-│   │
-│   ├── infrastructure/
-│   │   └── trino/
-│   │       └── ibis_client.py   # IbisClient: conexão Ibis, cache de tabelas, execução async
 │   │
 │   └── main.py                  # FastAPI app, lifespan, rota GraphQL
 ├── .env
@@ -102,7 +100,7 @@ needs_join = "productCatalog" in selected_fields or (
 
 ### DataLoader e relação N+1
 
-`ProductCatalogType` expõe um campo `products` que carrega os produtos de um catálogo. Para evitar N+1 queries, o resolver usa um `DataLoader` configurado em `graphql/loaders.py`. Uma única query em lote busca todos os produtos dos catálogos solicitados e os agrupa por `catalog_id`.
+`ProductCatalogType` expõe um campo `products` que carrega os produtos de um catálogo. Para evitar N+1 queries, o resolver usa um `DataLoader` configurado em `infrastructure/graphql/loaders.py`. Uma única query em lote busca todos os produtos dos catálogos solicitados e os agrupa por `catalog_id`.
 
 ## Como instalar
 

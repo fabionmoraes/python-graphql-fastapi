@@ -2,8 +2,8 @@ import strawberry
 from strawberry.extensions import DisableIntrospection, QueryDepthLimiter
 
 from app.core.config import settings
-from app.graphql.queries.catalog_query import CatalogQuery
-from app.graphql.queries.product_query import ProductQuery
+from app.infrastructure.graphql.queries.catalog_query import CatalogQuery
+from app.infrastructure.graphql.queries.product_query import ProductQuery
 
 
 @strawberry.type

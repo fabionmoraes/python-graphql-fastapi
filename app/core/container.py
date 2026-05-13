@@ -1,8 +1,8 @@
 from functools import cached_property
 
 from app.infrastructure.trino.ibis_client import IbisClient
-from app.repositories.trino.catalog_trino_repository import CatalogTrinoRepository
-from app.repositories.trino.product_trino_repository import ProductTrinoRepository
+from app.infrastructure.trino.repositories.catalog_repository_impl import CatalogTrinoRepository
+from app.infrastructure.trino.repositories.product_repository_impl import ProductTrinoRepository
 from app.services.catalog_service import CatalogService
 from app.services.product_service import ProductService
 

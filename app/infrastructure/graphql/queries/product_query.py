@@ -3,12 +3,12 @@ from graphql import GraphQLError
 from strawberry.types import Info
 
 from app.domain.entities.product import ProductWhereEntity, StringComparisonEntity
-from app.graphql.context import get_container_from_context
-from app.graphql.pagination import Connection, build_connection, decode_cursor
-from app.graphql.types.mappers import to_product_type
-from app.graphql.types.product_type import ProductType, ProductWhereInput, StringComparisonExp
-from app.graphql.utils.constants import MAX_FIRST
-from app.graphql.utils.selection import parse_selected_fields
+from app.infrastructure.graphql.context import get_container_from_context
+from app.infrastructure.graphql.pagination import Connection, build_connection, decode_cursor
+from app.infrastructure.graphql.types.mappers import to_product_type
+from app.infrastructure.graphql.types.product_type import ProductType, ProductWhereInput, StringComparisonExp
+from app.infrastructure.graphql.utils.constants import MAX_FIRST
+from app.infrastructure.graphql.utils.selection import parse_selected_fields
 
 
 def _to_string_comparison(exp: StringComparisonExp | None) -> StringComparisonEntity | None:

@@ -23,8 +23,8 @@ class ProductCatalogType:
 
     @strawberry.field
     async def products(self, info: Info) -> list["ProductType"]:
-        from app.graphql.types.mappers import to_product_type
-        from app.graphql.utils.selection import parse_selected_fields
+        from app.infrastructure.graphql.types.mappers import to_product_type
+        from app.infrastructure.graphql.utils.selection import parse_selected_fields
 
         loaders = info.context["loaders"]
         selected_fields = parse_selected_fields(info)

@@ -2,12 +2,12 @@ import strawberry
 from graphql import GraphQLError
 from strawberry.types import Info
 
-from app.graphql.context import get_container_from_context
-from app.graphql.pagination import Connection, build_connection, decode_cursor
-from app.graphql.types.mappers import to_catalog_type
-from app.graphql.types.product_type import ProductCatalogType
-from app.graphql.utils.selection import parse_selected_fields
-from app.graphql.utils.constants import MAX_FIRST
+from app.infrastructure.graphql.context import get_container_from_context
+from app.infrastructure.graphql.pagination import Connection, build_connection, decode_cursor
+from app.infrastructure.graphql.types.mappers import to_catalog_type
+from app.infrastructure.graphql.types.product_type import ProductCatalogType
+from app.infrastructure.graphql.utils.selection import parse_selected_fields
+from app.infrastructure.graphql.utils.constants import MAX_FIRST
 
 
 @strawberry.type

@@ -7,8 +7,8 @@ from strawberry.fastapi import GraphQLRouter
 
 from app.core.container import Container
 from app.core.dependencies import require_basic_auth
-from app.graphql.loaders import Loaders
-from app.graphql.schema import schema
+from app.infrastructure.graphql.loaders import Loaders
+from app.infrastructure.graphql.schema import schema
 from app.infrastructure.trino.ibis_client import IbisClient
 
 

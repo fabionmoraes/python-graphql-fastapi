@@ -1,5 +1,5 @@
 from app.domain.entities.product import ProductCatalogEntity, ProductEntity
-from app.graphql.types.product_type import ProductCatalogType, ProductType
+from app.infrastructure.graphql.types.product_type import ProductCatalogType, ProductType
 
 
 def to_product_type(product: ProductEntity) -> ProductType:
